@@ -38,5 +38,10 @@ Thumbs.db
 # DB
 images.db
 
+# Runtime artifacts
+server_log.txt
+server_err.txt
+.browser_data/
+
 # Claude
 .claude/
