@@ -1,0 +1,25 @@
+' MemeTracker silent launcher (no console window).
+' Double-click to start: tray icon appears, browser opens when server is ready.
+' To exit: right-click tray icon -> Exit.
+
+Set fso = CreateObject("Scripting.FileSystemObject")
+Set shell = CreateObject("WScript.Shell")
+
+scriptDir = fso.GetParentFolderName(WScript.ScriptFullName)
+pythonw  = scriptDir & "\.venv\Scripts\pythonw.exe"
+launcher = scriptDir & "\tray_launcher.py"
+
+If Not fso.FileExists(pythonw) Then
+    MsgBox "Virtual environment not found:" & vbCrLf & pythonw & vbCrLf & vbCrLf & _
+           "Create it first: python -m venv .venv && .venv\Scripts\pip install -r requirements.txt", _
+           vbCritical, "MemeTracker"
+    WScript.Quit 1
+End If
+
+If Not fso.FileExists(launcher) Then
+    MsgBox "Launcher not found:" & vbCrLf & launcher, vbCritical, "MemeTracker"
+    WScript.Quit 1
+End If
+
+shell.CurrentDirectory = scriptDir
+shell.Run """" & pythonw & """ """ & launcher & """", 0, False
