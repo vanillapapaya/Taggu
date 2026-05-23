@@ -1,0 +1,116 @@
+{
+  "_comment": "Danbooru tag (underscore form, no work suffix) -> Korean alias. Add freely. Lookup is case-insensitive and tries removing trailing _(work) suffix.",
+
+  "_works": {
+    "bang_dream!": "뱅드림",
+    "bang_dream!_it's_mygo!!!!!": "마이고",
+    "bang_dream!_ave_mujica": "아베무지카",
+    "gakuen_idolmaster": "학원마스",
+    "idolmaster": "아이마스",
+    "project_sekai": "프로세카",
+    "vocaloid": "보컬로이드",
+    "hatsune_miku_(vocaloid)": "하츠네미쿠"
+  },
+
+  "characters": {
+    "toyama_kasumi": "카스미",
+    "hanazono_tae": "타에",
+    "ushigome_rimi": "리미",
+    "yamabuki_saaya": "사아야",
+    "ichigaya_arisa": "아리사",
+
+    "minato_yukina": "유키나",
+    "hikawa_sayo": "사요",
+    "imai_lisa": "리사",
+    "udagawa_ako": "아코",
+    "shirokane_rinko": "린코",
+
+    "mitake_ran": "란",
+    "aoba_moca": "모카",
+    "uehara_himari": "히마리",
+    "udagawa_tomoe": "토모에",
+    "hazawa_tsugumi": "츠구미",
+
+    "maruyama_aya": "아야",
+    "hikawa_hina": "히나",
+    "shirasagi_chisato": "치사토",
+    "yamato_maya": "마야",
+    "wakamiya_eve": "에브",
+
+    "tsurumaki_kokoro": "코코로",
+    "seta_kaoru": "카오루",
+    "kitazawa_hagumi": "하구미",
+    "matsubara_kanon": "카논",
+    "okusawa_misaki": "미사키",
+
+    "kurata_mashiro": "마시로",
+    "futaba_tsukushi": "츠쿠시",
+    "yashio_rui": "야시오 루이",
+    "kirigaya_touko": "토우코",
+    "hiromachi_nanami": "나나미",
+
+    "wakana_rei": "레이어",
+    "asahi_rokka": "록",
+    "satou_masuki": "마스킹",
+    "nyubara_reona": "파레오",
+    "tamade_chiyu": "츄츄",
+
+    "takamatsu_tomori": "토모리",
+    "chihaya_anon": "아논",
+    "kaname_raana": "라나",
+    "nagasaki_soyo": "소요",
+    "shiina_taki": "타키",
+
+    "togawa_sakiko": "사키코",
+    "wakaba_mutsumi": "무츠미",
+    "yahata_umiri": "우미리",
+    "yuutenji_nyamu": "냐무",
+    "misumi_uika": "우이카",
+
+    "hanami_saki": "하나미 사키",
+    "tsukimura_temari": "테마리",
+    "fujita_kotone": "코토네",
+    "shinosawa_hiro": "시노사와 히로",
+    "katsuragi_lilja": "릴리야",
+    "kuramoto_china": "치이나",
+    "arimura_lui": "아리무라 루이",
+    "shiun_sumika": "스미카",
+    "kiriya_aoi": "키리야 아오이",
+    "utamori_mizuki": "우타모리 미즈키",
+    "awane_hime": "아와네 히메",
+    "juo_kaya": "카야",
+    "shinosawa_rin": "시노사와 린",
+
+    "hoshino_ichika": "이치카",
+    "tenma_saki": "텐마 사키",
+    "mochizuki_honami": "호나미",
+    "hinomori_shiho": "시호",
+
+    "hanasato_minori": "미노리",
+    "kiritani_haruka": "하루카",
+    "momoi_airi": "아이리",
+    "hinomori_shizuku": "시즈쿠",
+
+    "azusawa_kohane": "코하네",
+    "shiraishi_an": "안",
+    "aoyagi_toya": "토우야",
+    "shinonome_akito": "아키토",
+
+    "tenma_tsukasa": "츠카사",
+    "otori_emu": "에무",
+    "kusanagi_nene": "네네",
+    "kamishiro_rui": "카미시로 루이",
+
+    "yoisaki_kanade": "카나데",
+    "asahina_mafuyu": "마후유",
+    "shinonome_ena": "에나",
+    "akiyama_mizuki": "아키야마 미즈키",
+
+    "hatsune_miku": "미쿠",
+    "kagamine_rin": "린",
+    "kagamine_len": "렌",
+    "megurine_luka": "루카",
+    "meiko_(vocaloid)": "메이코",
+    "kaito_(vocaloid)": "카이토"
+  }
+}

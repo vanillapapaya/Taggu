@@ -4,112 +4,388 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MemeTracker</title>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
+        :root {
+            --bg: #1f1d1a;
+            --bg-elev: #2a2723;
+            --bg-card: #34302b;
+            --border: #45403a;
+            --border-strong: #5a544c;
+            --text: #faf6ee;
+            --text-dim: #d4cdbd;
+            --text-muted: #9a9183;
+            --accent: #d97757;
+            --accent-hover: #e58a6e;
+            --char: #a3d6c8;
+            --char-bg: rgba(163,214,200,0.18);
+            --work: #e0c89a;
+            --work-bg: rgba(224,200,154,0.16);
+            --fav: #f0b232;
+            --fav-bg: rgba(240,178,50,0.15);
+            --tag-bg: #423d36;
+            --success: #93c47d;
+            --warn: #e2b96f;
+            --error: #d97070;
+            --radius: 12px;
+            --radius-sm: 8px;
+            --radius-pill: 999px;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #0a0a0a;
-            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', 'Pretendard', sans-serif;
+            background: var(--bg);
+            color: var(--text);
             min-height: 100vh;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
         header {
             position: sticky;
             top: 0;
             z-index: 100;
-            background: #0a0a0a;
-            border-bottom: 1px solid #222;
-            padding: 16px 24px;
+            background: rgba(31,29,26,0.92);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
         }
 
         .header-inner {
             max-width: 1400px;
             margin: 0 auto;
+            padding: 18px 28px 12px;
             display: flex;
             align-items: center;
-            gap: 20px;
+            gap: 24px;
         }
 
         h1 {
-            font-size: 20px;
-            font-weight: 700;
+            font-size: 17px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            color: var(--text);
             white-space: nowrap;
-            color: #fff;
         }
 
         .search-box {
             flex: 1;
             display: flex;
-            gap: 8px;
+            gap: 10px;
         }
 
         .search-box input {
             flex: 1;
-            padding: 10px 16px;
-            border: 1px solid #333;
-            border-radius: 8px;
-            background: #151515;
-            color: #fff;
+            padding: 12px 18px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--bg-elev);
+            color: var(--text);
             font-size: 15px;
+            font-family: inherit;
             outline: none;
-            transition: border-color 0.2s;
+            transition: border-color 0.15s, background 0.15s;
         }
-
-        .search-box input:focus { border-color: #666; }
-        .search-box input::placeholder { color: #555; }
+        .search-box input:focus { border-color: var(--accent); background: var(--bg-card); }
+        .search-box input::placeholder { color: var(--text-muted); }
 
         .search-box button {
-            padding: 10px 20px;
-            background: #2563eb;
+            padding: 12px 22px;
+            background: var(--accent);
             color: #fff;
             border: none;
-            border-radius: 8px;
-            font-size: 15px;
+            border-radius: var(--radius);
+            font-size: 14px;
+            font-weight: 500;
             cursor: pointer;
             white-space: nowrap;
-            transition: background 0.2s;
+            transition: background 0.15s;
         }
-
-        .search-box button:hover { background: #1d4ed8; }
+        .search-box button:hover { background: var(--accent-hover); }
 
         .stats {
             font-size: 13px;
-            color: #666;
+            color: var(--text-dim);
             white-space: nowrap;
+        }
+
+        .view-tabs {
+            display: flex;
+            gap: 2px;
+            background: var(--bg-elev);
+            padding: 4px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+        }
+        .view-tabs button {
+            padding: 6px 12px;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.15s, color 0.15s;
+            font-family: inherit;
+        }
+        .view-tabs button:hover { color: var(--text-dim); }
+        .view-tabs button.active { background: var(--bg-card); color: var(--text); }
+
+        .header-actions {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+        .icon-action {
+            width: 36px;
+            height: 36px;
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            line-height: 1;
+            padding: 0;
+            transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
+            font-family: inherit;
+        }
+        .icon-action:hover {
+            background: var(--bg-elev);
+            color: var(--text);
+            border-color: var(--border-strong);
+        }
+        .icon-action:active { transform: scale(0.94); }
+        .icon-action.danger:hover {
+            background: rgba(217,112,112,0.15);
+            color: var(--error);
+            border-color: var(--error);
+        }
+
+        .popover {
+            position: fixed;
+            top: 70px;
+            right: 28px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-strong);
+            border-radius: var(--radius);
+            padding: 18px 20px;
+            min-width: 320px;
+            max-width: 420px;
+            box-shadow: 0 16px 40px rgba(0,0,0,0.55);
+            z-index: 250;
+            font-size: 13px;
+            color: var(--text-dim);
+        }
+        .popover h4 {
+            color: var(--text);
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+        }
+        .popover dl {
+            display: grid;
+            grid-template-columns: 130px 1fr;
+            gap: 8px 14px;
+            margin: 0;
+        }
+        .popover dt {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+        .popover dd {
+            color: var(--text);
+            margin: 0;
+            font-size: 13px;
+        }
+        .popover kbd {
+            background: var(--bg-elev);
+            border: 1px solid var(--border);
+            border-bottom-width: 2px;
+            border-radius: 4px;
+            padding: 1px 7px;
+            font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+            font-size: 11px;
+            color: var(--text);
+            margin: 0 2px;
+        }
+
+        .toolbar {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 28px 16px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .toolbar input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            background: var(--bg-elev);
+            color: var(--text);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+        .toolbar input:focus { border-color: var(--border-strong); }
+
+        .toolbar button {
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            background: var(--bg-elev);
+            color: var(--text-dim);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+        }
+        .toolbar button:hover { background: var(--bg-card); color: var(--text); border-color: var(--border-strong); }
+        .toolbar button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .toolbar button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; }
+        .toolbar button:disabled { background: var(--bg-elev); color: var(--text-muted); cursor: not-allowed; }
+
+        .progress {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 12px 28px 14px;
+            border-top: 1px solid var(--border);
+            font-size: 12px;
+            color: var(--accent);
+        }
+
+        .progress-text {
+            font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .progress-bar {
+            height: 3px;
+            background: var(--border);
+            margin-top: 8px;
+            border-radius: var(--radius-pill);
+            overflow: hidden;
+        }
+        .progress-bar > div {
+            height: 100%;
+            background: var(--accent);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress.done .progress-text { color: var(--success); }
+        .progress.done .progress-bar > div { background: var(--success); }
+        .progress.error .progress-text { color: var(--error); }
+        .progress.error .progress-bar > div { background: var(--error); }
+
+        .folder-panel {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 16px 28px 20px;
+            border-top: 1px solid var(--border);
+        }
+
+        .folder-empty {
+            color: var(--text-muted);
+            font-size: 13px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .folder-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            margin-bottom: 8px;
+            gap: 16px;
+        }
+
+        .folder-info { flex: 1; min-width: 0; }
+        .folder-path {
+            color: var(--text);
+            font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+            font-size: 13px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .folder-meta {
+            color: var(--text-muted);
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .folder-actions {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
         }
 
         main {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 24px;
+            padding: 32px 28px 64px;
         }
 
         .status {
             text-align: center;
-            padding: 40px;
-            color: #666;
-            font-size: 15px;
+            padding: 64px 24px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+        .status-bottom {
+            padding: 24px 24px 48px;
+            font-size: 12px;
+            color: var(--text-muted);
         }
 
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-            gap: 16px;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 18px;
         }
 
         .card {
-            background: #151515;
-            border-radius: 10px;
+            position: relative;
+            background: var(--bg-card);
+            border-radius: var(--radius);
             overflow: hidden;
-            border: 1px solid #222;
-            transition: border-color 0.2s, transform 0.2s;
+            border: 1px solid var(--border);
+            transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
             cursor: pointer;
         }
 
         .card:hover {
-            border-color: #444;
+            border-color: var(--border-strong);
             transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+        }
+
+        .card.matched {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px var(--accent), 0 8px 24px rgba(217,119,87,0.18);
         }
 
         .card img {
@@ -117,121 +393,385 @@
             aspect-ratio: 1;
             object-fit: cover;
             display: block;
-            background: #1a1a1a;
+            background: var(--bg-elev);
         }
 
-        .card-info {
-            padding: 10px 12px;
-        }
+        .card-info { padding: 12px 14px 14px; }
 
         .card-filename {
             font-size: 12px;
-            color: #888;
+            color: var(--text-muted);
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            margin-bottom: 4px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
         }
 
         .card-tags {
-            font-size: 12px;
-            color: #aaa;
             display: flex;
             flex-wrap: wrap;
-            gap: 4px;
+            gap: 5px;
         }
 
         .tag {
-            background: #222;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 11px;
+            background: var(--tag-bg);
+            color: var(--text);
+            padding: 3px 10px;
+            border-radius: var(--radius-pill);
+            font-size: 12px;
+            line-height: 1.5;
+            font-weight: 400;
         }
+        .tag.char {
+            background: var(--char-bg);
+            color: var(--char);
+            font-weight: 600;
+        }
+        .tag.work {
+            background: var(--work-bg);
+            color: var(--work);
+        }
+        .tag.user {
+            background: rgba(217,119,87,0.16);
+            color: var(--accent);
+            font-weight: 600;
+        }
+        .tag.user .tag-x {
+            margin-left: 6px;
+            opacity: 0.55;
+            cursor: pointer;
+            font-weight: 700;
+        }
+        .tag.user .tag-x:hover { opacity: 1; color: var(--error); }
+
+        .tag-editor {
+            margin: 12px 0 14px;
+        }
+        .tag-editor-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .tag-editor-row {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .tag-editor-row input {
+            flex: 1;
+            padding: 8px 12px;
+            background: var(--bg-elev);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            outline: none;
+            font-family: inherit;
+        }
+        .tag-editor-row input:focus { border-color: var(--accent); }
+        .tag-editor-row button {
+            padding: 8px 14px;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            font-family: inherit;
+        }
+        .tag-editor-row button:hover { background: var(--accent-hover); }
 
         .card-desc {
             font-size: 12px;
-            color: #777;
-            margin-top: 6px;
+            color: var(--text-dim);
+            margin-top: 8px;
+            line-height: 1.5;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
 
+        .card-actions {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            display: flex;
+            gap: 6px;
+            z-index: 2;
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+        .card:hover .card-actions { opacity: 1; }
+        .card.favorited .card-actions,
+        .card.hidden-card .card-actions { opacity: 1; }
+
+        .icon-btn {
+            width: 30px;
+            height: 30px;
+            background: rgba(0,0,0,0.65);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            line-height: 1;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
+            padding: 0;
+        }
+        .icon-btn:hover { background: var(--accent); border-color: var(--accent); }
+        .icon-btn:active { transform: scale(0.92); }
+        .icon-btn.fav.active { background: var(--fav); border-color: var(--fav); color: #2a1f10; }
+        .icon-btn.hide:hover { background: var(--error); border-color: var(--error); }
+        .icon-btn.show:hover { background: var(--success); border-color: var(--success); }
+
+        .card.hidden-card { opacity: 0.6; filter: grayscale(0.5); }
+        .card.hidden-card:hover { opacity: 0.95; filter: grayscale(0); }
+        .card.favorited { border-color: var(--fav); box-shadow: 0 0 0 1px var(--fav); }
+        .card.favorited.matched { box-shadow: 0 0 0 1px var(--accent), 0 8px 24px rgba(217,119,87,0.18); border-color: var(--accent); }
+
         .score-badge {
             font-size: 11px;
-            color: #2563eb;
+            color: var(--accent);
             font-weight: 600;
+            flex-shrink: 0;
         }
 
-        /* 모달 (이미지 상세) */
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.08);
+            padding: 6px 12px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.15s, background 0.15s;
+            z-index: 2;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+        .card:hover .copy-btn { opacity: 1; }
+        .copy-btn:hover { background: var(--accent); }
+        .copy-btn:disabled { background: rgba(0,0,0,0.4); cursor: default; }
+
         .modal-overlay {
             display: none;
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(0,0,0,0.78);
             z-index: 200;
             justify-content: center;
             align-items: center;
             padding: 40px;
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
         }
 
         .modal-overlay.active { display: flex; }
 
         .modal-content {
-            max-width: 900px;
+            max-width: 1100px;
             max-height: 90vh;
             display: flex;
-            gap: 24px;
-            background: #151515;
-            border-radius: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
             overflow: hidden;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.5);
         }
 
         .modal-img {
-            max-width: 600px;
+            max-width: 720px;
             max-height: 90vh;
             object-fit: contain;
+            background: var(--bg);
         }
 
         .modal-info {
-            padding: 24px;
-            min-width: 250px;
+            padding: 28px;
+            min-width: 280px;
+            max-width: 380px;
             overflow-y: auto;
         }
 
         .modal-info h3 {
-            font-size: 16px;
-            margin-bottom: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 16px;
             word-break: break-all;
+            color: var(--text);
+            line-height: 1.4;
         }
 
         .modal-info .card-tags { margin-bottom: 12px; }
         .modal-info .card-desc {
             -webkit-line-clamp: unset;
-            color: #aaa;
+            color: var(--text-dim);
+            margin-top: 12px;
+            font-size: 13px;
         }
+
+        .modal-copy-btn {
+            display: block;
+            width: 100%;
+            padding: 11px 16px;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            margin: 12px 0 16px;
+            transition: background 0.15s;
+        }
+        .modal-copy-btn:hover { background: var(--accent-hover); }
+        .modal-copy-btn:disabled { background: var(--bg-elev); color: var(--text-muted); cursor: default; }
+
+        .modal-action-btn {
+            flex: 1;
+            padding: 9px 12px;
+            background: var(--bg-elev);
+            color: var(--text-dim);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+            font-family: inherit;
+        }
+        .modal-action-btn:hover { background: var(--bg-card); color: var(--text); border-color: var(--border-strong); }
+        .modal-action-btn.active-fav { background: var(--fav-bg); color: var(--fav); border-color: var(--fav); }
+        .modal-action-btn.active-hide { background: rgba(217,112,112,0.15); color: var(--error); border-color: var(--error); }
+
+        .modal-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0,0,0,0.5);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.1);
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            font-size: 22px;
+            cursor: pointer;
+            z-index: 220;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(8px);
+            transition: background 0.15s;
+        }
+        .modal-nav:hover { background: var(--accent); }
+        .modal-nav:disabled { opacity: 0.3; cursor: default; background: rgba(0,0,0,0.5); }
+        .modal-nav.prev { left: 16px; }
+        .modal-nav.next { right: 16px; }
+
+        .modal-counter {
+            position: absolute;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.55);
+            color: var(--text-dim);
+            padding: 6px 12px;
+            border-radius: var(--radius-pill);
+            font-size: 12px;
+            z-index: 220;
+            backdrop-filter: blur(8px);
+        }
+
+        .card.selected {
+            border-color: #6ea8d6;
+            box-shadow: 0 0 0 2px #6ea8d6;
+        }
+        .card.selected.favorited { box-shadow: 0 0 0 2px #6ea8d6; }
+
+        .bulk-bar {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-card);
+            border: 1px solid var(--border-strong);
+            border-radius: var(--radius-pill);
+            padding: 8px 8px 8px 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 150;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+        }
+        .bulk-bar .bulk-count {
+            color: var(--text);
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .bulk-bar button {
+            padding: 8px 14px;
+            background: var(--bg-elev);
+            color: var(--text-dim);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-pill);
+            font-size: 12px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.15s, color 0.15s;
+        }
+        .bulk-bar button:hover { background: var(--bg-card); color: var(--text); }
+        .bulk-bar button.danger:hover { background: var(--error); color: #fff; border-color: var(--error); }
+        .bulk-bar button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .bulk-bar button.primary:hover { background: var(--accent-hover); }
 
         .load-more {
             display: block;
-            margin: 32px auto;
-            padding: 12px 32px;
-            background: #222;
-            color: #ccc;
-            border: 1px solid #333;
-            border-radius: 8px;
-            font-size: 14px;
+            margin: 40px auto 0;
+            padding: 11px 32px;
+            background: transparent;
+            color: var(--text-dim);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 500;
             cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
         }
+        .load-more:hover { background: var(--bg-elev); border-color: var(--border-strong); color: var(--text); }
 
-        .load-more:hover { background: #2a2a2a; }
+        ::-webkit-scrollbar { width: 12px; height: 12px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; border: 3px solid var(--bg); }
+        ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
 
         @media (max-width: 768px) {
-            .header-inner { flex-wrap: wrap; }
+            .header-inner { flex-wrap: wrap; padding: 14px 18px 10px; gap: 12px; }
+            .toolbar { flex-wrap: wrap; padding: 0 18px 14px; }
             .stats { display: none; }
-            .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-            .modal-content { flex-direction: column; }
-            .modal-img { max-width: 100%; }
+            .grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+            main { padding: 20px 18px 48px; }
+            .modal-overlay { padding: 16px; }
+            .modal-content { flex-direction: column; max-height: 95vh; }
+            .modal-img { max-width: 100%; max-height: 55vh; }
+            .modal-info { max-width: 100%; padding: 20px; }
         }
     </style>
 </head>
@@ -241,24 +781,84 @@
     <div class="header-inner">
         <h1>MemeTracker</h1>
         <div class="search-box">
-            <input type="text" id="searchInput" placeholder="검색어 입력... (예: 놀란 고양이, 애니 밈)" autofocus>
+            <input type="text" id="searchInput" placeholder="검색어 입력" autofocus>
             <button onclick="doSearch()">검색</button>
+            <button onclick="loadRandom()" title="랜덤 5개">랜덤</button>
         </div>
-        <div class="stats" id="stats">{{ total }}개 이미지</div>
+        <div class="view-tabs" id="viewTabs">
+            <button class="active" data-view="all" onclick="setView('all')">전체 <span id="cntAll"></span></button>
+            <button data-view="favorite" onclick="setView('favorite')">★ <span id="cntFav"></span></button>
+            <button data-view="hidden" onclick="setView('hidden')">숨김 <span id="cntHid"></span></button>
+        </div>
+        <div class="header-actions">
+            <button class="icon-action" title="단축키" onclick="togglePopover('shortcuts')">⌨</button>
+            <button class="icon-action" title="정보 / 통계" onclick="togglePopover('info')">ℹ</button>
+            <button class="icon-action" title="서버 로그 열기" onclick="openLog()">📋</button>
+            <button class="icon-action danger" title="서버 재시작 (코드 변경 시에만 필요. UI 변경은 Ctrl+F5만으로 됨)" onclick="restartServer()">↻</button>
+        </div>
+    </div>
+
+    <div class="popover" id="shortcutsPopover" style="display:none">
+        <h4>단축키</h4>
+        <dl>
+            <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>모달 이전/다음 이미지</dd>
+            <dt><kbd>Esc</kbd></dt><dd>모달 닫기</dd>
+            <dt><kbd>Ctrl</kbd> + 클릭</dt><dd>다중 선택 (일괄 작업)</dd>
+            <dt><kbd>Shift</kbd> + 클릭</dt><dd>다중 선택</dd>
+            <dt><kbd>Enter</kbd></dt><dd>검색 / 폴더 인덱싱</dd>
+            <dt><kbd>Ctrl</kbd> + <kbd>F5</kbd></dt><dd>강제 새로고침</dd>
+        </dl>
+    </div>
+
+    <div class="popover" id="infoPopover" style="display:none">
+        <h4>정보</h4>
+        <div id="infoPopoverBody">로딩 중...</div>
+    </div>
+
+    <div class="toolbar">
+        <input type="text" id="folderInput" placeholder="이미지 폴더 경로">
+        <button id="folderPickBtn" onclick="pickFolder()" title="폴더 선택 창 열기">폴더 고르기</button>
+        <button id="indexBtn" class="primary" onclick="startIndex(false)" title="새로 추가된 이미지만 빠르게 분석 (캐릭터 인식)">새 이미지 추가</button>
+        <button id="backfillBtn" onclick="startBackfill()" title="이미 추가된 이미지 중 캐릭터 인식이 안 된 것들을 분석">캐릭터 인식</button>
+        <button id="aiBtn" onclick="startAIAnalysis()" title="AI로 한국어 태그/설명 생성">AI 분석</button>
+        <button onclick="startRelocalize()" title="이름 사전을 다시 읽어 캐릭터 이름 갱신 (이미지 재분석 X)">이름 다시 적용</button>
+        <button onclick="toggleFolderPanel()">폴더 목록</button>
+    </div>
+
+    <div class="progress" id="progress" style="display:none">
+        <div class="progress-text" id="progressText"></div>
+        <div class="progress-bar"><div id="progressFill"></div></div>
+    </div>
+
+    <div class="folder-panel" id="folderPanel" style="display:none">
+        <div id="folderList"></div>
     </div>
 </header>
 
 <main>
-    <div id="status" class="status">검색어를 입력하거나 스크롤하여 이미지를 둘러보세요</div>
     <div id="grid" class="grid"></div>
     <button id="loadMore" class="load-more" style="display:none" onclick="loadMore()">더 보기</button>
+    <div id="status" class="status status-bottom"></div>
 </main>
 
 <div class="modal-overlay" id="modal" onclick="closeModal(event)">
+    <div class="modal-counter" id="modalCounter" onclick="event.stopPropagation()"></div>
+    <button class="modal-nav prev" id="modalPrev" onclick="event.stopPropagation(); modalPrev()" title="이전 (←)">‹</button>
+    <button class="modal-nav next" id="modalNext" onclick="event.stopPropagation(); modalNext()" title="다음 (→)">›</button>
     <div class="modal-content" onclick="event.stopPropagation()">
         <img class="modal-img" id="modalImg" src="" alt="">
         <div class="modal-info" id="modalInfo"></div>
     </div>
+</div>
+
+<div class="bulk-bar" id="bulkBar" style="display:none">
+    <span class="bulk-count" id="bulkCount">0개 선택됨</span>
+    <button onclick="bulkAction('favorite', true)">★ 즐겨찾기</button>
+    <button onclick="bulkAction('favorite', false)">★ 해제</button>
+    <button onclick="bulkAction('hidden', true)">✕ 숨기기</button>
+    <button onclick="bulkAction('hidden', false)">↺ 표시</button>
+    <button onclick="bulkAddTag()">+ 태그 추가</button>
+    <button class="primary" onclick="clearSelection()">선택 해제</button>
 </div>
 
 <script>
@@ -267,27 +867,128 @@ const status = document.getElementById('status');
 const searchInput = document.getElementById('searchInput');
 const loadMoreBtn = document.getElementById('loadMore');
 
-let currentMode = 'browse'; // 'browse' or 'search'
+let currentMode = 'browse';
+let currentView = 'all';
 let browseOffset = 0;
 let currentQuery = '';
 const PAGE_SIZE = 40;
 
-// 페이지 로드 시 최신 이미지 표시
-window.addEventListener('DOMContentLoaded', () => {
+let pollTimer = null;
+const clipboardSupported = !!(navigator.clipboard && window.ClipboardItem);
+
+let cardData = [];
+let modalIndex = -1;
+const selected = new Set();
+
+window.addEventListener('DOMContentLoaded', async () => {
+    try {
+        const res = await fetch('/api/index/status');
+        const s = await res.json();
+        if (s.status === 'running' || s.status === 'loading_model') {
+            pollProgress();
+        }
+    } catch {}
+    loadFolders();
+    loadCounts();
     loadBrowse();
+    setupFolderDrop();
 });
+
+async function pickFolder() {
+    const btn = document.getElementById('folderPickBtn');
+    const oldText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '선택 중...';
+    try {
+        const res = await fetch('/api/pick_folder', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+            alert('오류: ' + (data.error || res.statusText));
+            return;
+        }
+        if (data.path) {
+            document.getElementById('folderInput').value = data.path;
+            document.getElementById('folderInput').focus();
+        }
+    } catch (e) {
+        alert('폴더 선택 실패: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = oldText;
+    }
+}
+
+function setupFolderDrop() {
+    const input = document.getElementById('folderInput');
+    const onDragOver = (e) => { e.preventDefault(); e.stopPropagation(); input.style.borderColor = 'var(--accent)'; };
+    const onDragLeave = (e) => { input.style.borderColor = ''; };
+    const onDrop = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        input.style.borderColor = '';
+        const dt = e.dataTransfer;
+        if (!dt) return;
+        // pywebview/Chromium은 보안상 file.path를 안 줌. 시도 후 실패 시 안내.
+        let pathFound = null;
+        if (dt.files && dt.files.length > 0) {
+            const f = dt.files[0];
+            if (f.path) pathFound = f.path;
+        }
+        if (pathFound) {
+            input.value = pathFound;
+            input.focus();
+        } else {
+            const isDesktop = !!(window.pywebview && window.pywebview.api);
+            alert(isDesktop
+                ? '브라우저 엔진(WebView2) 보안상 드롭 파일의 절대 경로를 가져올 수 없습니다.\n[폴더 선택] 버튼을 사용하세요.'
+                : '드롭은 데스크톱 앱에서만 일부 동작합니다. 경로를 직접 입력하거나 [폴더 선택] 버튼을 사용하세요.');
+        }
+    };
+    input.addEventListener('dragover', onDragOver);
+    input.addEventListener('dragleave', onDragLeave);
+    input.addEventListener('drop', onDrop);
+}
+
+function setView(view) {
+    if (view === currentView) return;
+    currentView = view;
+    document.querySelectorAll('.view-tabs button').forEach(b => {
+        b.classList.toggle('active', b.dataset.view === view);
+    });
+    if (currentMode === 'search' && currentQuery) {
+        doSearch();
+    } else {
+        currentMode = 'browse';
+        browseOffset = 0;
+        grid.innerHTML = ''; cardData = [];
+        loadBrowse();
+    }
+}
+
+async function loadCounts() {
+    try {
+        const res = await fetch('/api/counts');
+        const c = await res.json();
+        document.getElementById('cntAll').textContent = c.all;
+        document.getElementById('cntFav').textContent = c.favorite;
+        document.getElementById('cntHid').textContent = c.hidden;
+        document.getElementById('stats') && (document.getElementById('stats').textContent = `${c.all}개`);
+    } catch (e) {}
+}
 
 searchInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') doSearch();
 });
 
+document.getElementById('folderInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') startIndex(false);
+});
+
 async function doSearch() {
     const q = searchInput.value.trim();
     if (!q) {
-        // 검색어 비어있으면 브라우즈 모드로
         currentMode = 'browse';
         browseOffset = 0;
-        grid.innerHTML = '';
+        grid.innerHTML = ''; cardData = [];
         loadBrowse();
         return;
     }
@@ -299,35 +1000,58 @@ async function doSearch() {
     loadMoreBtn.style.display = 'none';
 
     try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=${PAGE_SIZE}`);
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=${PAGE_SIZE}&view=${currentView}`);
         const data = await res.json();
 
         if (data.results.length === 0) {
-            status.textContent = `"${q}" 검색 결과 없음`;
+            const scanned = data.scanned ?? data.total ?? 0;
+            status.innerHTML = `"${escapeHTML(q)}" 매치되는 태그/설명/캐릭터 없음 (검색 대상 ${scanned}장)<br><span style="font-size:12px;color:var(--text-muted)">힌트: 카드 클릭 → 모달 → [내 태그]에 직접 단어를 추가하면 다음부터 검색됩니다. 한국어 의미 검색은 지원하지 않습니다 — 텍스트가 매치되어야 합니다.</span>`;
             return;
         }
 
-        status.textContent = `"${q}" 검색 결과: ${data.results.length}개 (전체 ${data.total}개 중)`;
+        status.textContent = `"${q}" 검색 결과 ${data.results.length}개`;
         data.results.forEach(item => grid.appendChild(createCard(item, true)));
     } catch (err) {
         status.textContent = '검색 오류: ' + err.message;
     }
 }
 
+async function loadRandom() {
+    currentMode = 'random';
+    currentQuery = '';
+    grid.innerHTML = ''; cardData = [];
+    status.textContent = '뽑는 중...';
+    loadMoreBtn.style.display = 'none';
+    try {
+        const res = await fetch(`/api/random?n=5&view=${currentView}`);
+        const data = await res.json();
+        if (!res.ok || data.error) { status.textContent = '오류: ' + (data.error || res.statusText); return; }
+        if (data.results.length === 0) { status.textContent = '뽑을 이미지가 없습니다.'; return; }
+        status.textContent = `랜덤 ${data.results.length}개`;
+        data.results.forEach(item => grid.appendChild(createCard(item, false)));
+    } catch (e) {
+        status.textContent = '실패: ' + e.message;
+    }
+}
+
 async function loadBrowse() {
-    status.textContent = browseOffset === 0 ? '로딩 중...' : status.textContent;
+    if (browseOffset === 0) status.textContent = '로딩 중...';
 
     try {
-        const res = await fetch(`/api/browse?offset=${browseOffset}&limit=${PAGE_SIZE}`);
+        const res = await fetch(`/api/browse?offset=${browseOffset}&limit=${PAGE_SIZE}&view=${currentView}`);
         const data = await res.json();
 
         if (data.results.length === 0 && browseOffset === 0) {
-            status.textContent = '인덱싱된 이미지가 없습니다. python index.py로 먼저 인덱싱하세요.';
+            const msg = currentView === 'favorite' ? '즐겨찾기한 이미지가 없습니다. 카드의 ★ 버튼으로 추가하세요.'
+                : currentView === 'hidden' ? '숨김 처리한 이미지가 없습니다.'
+                : '아직 추가된 이미지가 없습니다. 위쪽에 폴더 경로를 입력하고 [새 이미지 추가]를 누르세요.';
+            status.textContent = msg;
             return;
         }
 
         if (browseOffset === 0) {
-            status.textContent = `전체 ${data.total}개 이미지`;
+            const label = currentView === 'favorite' ? '즐겨찾기' : currentView === 'hidden' ? '숨김' : '전체';
+            status.textContent = `${label} ${data.total}개`;
         }
 
         data.results.forEach(item => grid.appendChild(createCard(item, false)));
@@ -343,46 +1067,192 @@ function loadMore() {
     if (currentMode === 'browse') loadBrowse();
 }
 
-function createCard(item, showScore) {
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.onclick = () => openModal(item);
+function updateStats(total) {
+    document.getElementById('stats').textContent = `${total}개 이미지`;
+}
 
-    const tags = item.tags ? item.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
-    const tagHTML = tags.slice(0, 4).map(t => `<span class="tag">${escapeHTML(t)}</span>`).join('');
+function createCard(item, showScore) {
+    const idx = cardData.length;
+    cardData.push(item);
+
+    const card = document.createElement('div');
+    let cls = 'card';
+    if (item.matched) cls += ' matched';
+    if (item.favorite) cls += ' favorited';
+    if (item.hidden) cls += ' hidden-card';
+    if (selected.has(item.id)) cls += ' selected';
+    card.className = cls;
+    card.dataset.id = item.id;
+    card.dataset.idx = idx;
+    card.onclick = (e) => {
+        if (e.target.closest('.copy-btn') || e.target.closest('.icon-btn')) return;
+        if (e.ctrlKey || e.metaKey || e.shiftKey) {
+            e.preventDefault();
+            toggleSelection(item.id, card);
+            return;
+        }
+        openModalAt(idx);
+    };
+
+    const userTags = parseTags(item.user_tags);
+    const charTags = parseTags(item.wd_chars_ko);
+    const tags = parseTags(item.tags);
+    const userHTML = userTags.slice(0, 4).map(t => `<span class="tag user">${escapeHTML(t)}</span>`).join('');
+    const charHTML = charTags.slice(0, 3).map(t => `<span class="tag char">${escapeHTML(t)}</span>`).join('');
+    const tagHTML = tags.slice(0, 3).map(t => `<span class="tag">${escapeHTML(t)}</span>`).join('');
     const scoreHTML = showScore && item.score ? `<span class="score-badge">${(item.score * 100).toFixed(1)}%</span>` : '';
 
+    const copyTitle = '복사';
+    const favTitle = item.favorite ? '즐겨찾기 해제' : '즐겨찾기';
+    const hideTitle = item.hidden ? '숨김 해제' : '숨기기';
+    const hideIcon = item.hidden ? '↺' : '✕';
+    const hideClass = item.hidden ? 'show' : 'hide';
+
     card.innerHTML = `
+        <div class="card-actions">
+            <button class="icon-btn fav${item.favorite ? ' active' : ''}" title="${favTitle}"
+                onclick="event.stopPropagation(); toggleFavorite(${item.id}, this)">★</button>
+            <button class="icon-btn ${hideClass}" title="${hideTitle}"
+                onclick="event.stopPropagation(); toggleHidden(${item.id}, this)">${hideIcon}</button>
+        </div>
+        <button class="copy-btn" title="${copyTitle}" onclick="event.stopPropagation(); copyImageToClipboard(${item.id}, this)">복사</button>
         <img src="${item.image_url}" alt="${escapeHTML(item.filename)}" loading="lazy"
              onerror="this.style.display='none'">
         <div class="card-info">
             <div class="card-filename">${escapeHTML(item.filename)} ${scoreHTML}</div>
-            ${tagHTML ? `<div class="card-tags">${tagHTML}</div>` : ''}
+            ${(userHTML || charHTML || tagHTML) ? `<div class="card-tags">${userHTML}${charHTML}${tagHTML}</div>` : ''}
             ${item.description ? `<div class="card-desc">${escapeHTML(item.description)}</div>` : ''}
         </div>
     `;
     return card;
 }
 
+function parseTags(s) {
+    return s ? s.split(',').map(t => t.trim()).filter(Boolean) : [];
+}
+
+async function toggleFavorite(id, btn) {
+    const card = btn.closest('.card');
+    const next = !card.classList.contains('favorited');
+    try {
+        const res = await fetch(`/api/image/${id}/state`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({favorite: next}),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+        card.classList.toggle('favorited', data.favorite);
+        btn.classList.toggle('active', data.favorite);
+        btn.title = data.favorite ? '즐겨찾기 해제' : '즐겨찾기';
+        loadCounts();
+        if (currentView === 'favorite' && !data.favorite) card.remove();
+    } catch (e) {
+        alert('즐겨찾기 변경 실패: ' + e.message);
+    }
+}
+
+async function toggleHidden(id, btn) {
+    const card = btn.closest('.card');
+    const next = !card.classList.contains('hidden-card');
+    try {
+        const res = await fetch(`/api/image/${id}/state`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({hidden: next}),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+        card.classList.toggle('hidden-card', data.hidden);
+        btn.textContent = data.hidden ? '↺' : '✕';
+        btn.title = data.hidden ? '숨김 해제' : '숨기기';
+        btn.classList.toggle('show', data.hidden);
+        btn.classList.toggle('hide', !data.hidden);
+        loadCounts();
+        if ((currentView === 'all' && data.hidden) || (currentView === 'hidden' && !data.hidden) || (currentView === 'favorite' && data.hidden)) {
+            card.remove();
+        }
+    } catch (e) {
+        alert('숨김 변경 실패: ' + e.message);
+    }
+}
+
+function openModalAt(idx) {
+    if (idx < 0 || idx >= cardData.length) return;
+    modalIndex = idx;
+    renderModalBody(cardData[idx]);
+    document.getElementById('modal').classList.add('active');
+    document.addEventListener('keydown', escHandler);
+    updateModalNavState();
+}
+
 function openModal(item) {
-    const modal = document.getElementById('modal');
+    const idx = cardData.findIndex(d => d.id === item.id);
+    openModalAt(idx >= 0 ? idx : 0);
+}
+
+function modalPrev() {
+    if (modalIndex > 0) openModalAt(modalIndex - 1);
+}
+function modalNext() {
+    if (modalIndex < cardData.length - 1) openModalAt(modalIndex + 1);
+}
+function updateModalNavState() {
+    document.getElementById('modalPrev').disabled = modalIndex <= 0;
+    document.getElementById('modalNext').disabled = modalIndex >= cardData.length - 1;
+    document.getElementById('modalCounter').textContent = cardData.length > 0 ? `${modalIndex + 1} / ${cardData.length}` : '';
+}
+
+function renderModalBody(item) {
     const img = document.getElementById('modalImg');
     const info = document.getElementById('modalInfo');
 
     img.src = item.image_url;
 
-    const tags = item.tags ? item.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+    const userTags = parseTags(item.user_tags);
+    const charTags = parseTags(item.wd_chars_ko);
+    const charsEn = parseTags(item.wd_chars);
+    const tags = parseTags(item.tags);
+    const userHTML = renderUserTagChips(item.id, userTags);
+    const charHTML = charTags.map(t => `<span class="tag char">${escapeHTML(t)}</span>`).join('');
     const tagHTML = tags.map(t => `<span class="tag">${escapeHTML(t)}</span>`).join('');
+    const copyLabel = '클립보드에 복사';
+
+    const favLabel = item.favorite ? '★ 즐겨찾기 해제' : '★ 즐겨찾기';
+    const hideLabel = item.hidden ? '↺ 숨김 해제' : '✕ 숨기기';
 
     info.innerHTML = `
         <h3>${escapeHTML(item.filename)}</h3>
         ${item.score ? `<p class="score-badge" style="margin-bottom:12px">유사도: ${(item.score * 100).toFixed(1)}%</p>` : ''}
-        ${tagHTML ? `<div class="card-tags">${tagHTML}</div>` : ''}
+        <button class="modal-copy-btn" onclick="copyImageToClipboard(${item.id}, this)">${copyLabel}</button>
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+            <button class="modal-action-btn ${item.favorite ? 'active-fav' : ''}" onclick="modalToggleFavorite(${item.id}, this)">${favLabel}</button>
+            <button class="modal-action-btn ${item.hidden ? 'active-hide' : ''}" onclick="modalToggleHidden(${item.id}, this)">${hideLabel}</button>
+        </div>
+        <button class="modal-action-btn" style="width:100%;margin-bottom:14px" onclick="findSimilar(${item.id})">≈ 비슷한 이미지 찾기</button>
+        <div class="tag-editor">
+            <div class="tag-editor-label">내 태그</div>
+            <div class="card-tags" id="userTagsBox">${userHTML || '<span class="folder-empty" style="padding:0;font-size:12px">없음</span>'}</div>
+            <div class="tag-editor-row">
+                <input type="text" id="userTagInput" placeholder="태그 입력 후 Enter" maxlength="50">
+                <button onclick="addUserTagFromInput(${item.id})">추가</button>
+            </div>
+        </div>
+        ${charHTML ? `<div class="tag-editor-label">캐릭터</div><div class="card-tags" style="margin-bottom:10px">${charHTML}</div>` : ''}
+        ${tagHTML ? `<div class="tag-editor-label">AI 태그</div><div class="card-tags">${tagHTML}</div>` : ''}
         ${item.description ? `<div class="card-desc">${escapeHTML(item.description)}</div>` : ''}
+        ${charsEn.length ? `<div class="card-desc" style="margin-top:10px;font-family:ui-monospace,monospace;font-size:11px;color:var(--text-muted)">캐릭터 원본: ${escapeHTML(charsEn.join(', '))}</div>` : ''}
     `;
 
-    modal.classList.add('active');
-    document.addEventListener('keydown', escHandler);
+    setTimeout(() => {
+        const inp = document.getElementById('userTagInput');
+        if (inp) {
+            inp.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); addUserTagFromInput(item.id); }
+            });
+        }
+    }, 0);
+    updateModalNavState();
 }
 
 function closeModal(e) {
@@ -393,17 +1263,597 @@ function closeModal(e) {
 }
 
 function escHandler(e) {
+    const tag = (e.target && e.target.tagName) || '';
+    const inField = tag === 'INPUT' || tag === 'TEXTAREA';
     if (e.key === 'Escape') {
         document.getElementById('modal').classList.remove('active');
         document.removeEventListener('keydown', escHandler);
+    } else if (!inField && e.key === 'ArrowLeft') {
+        e.preventDefault();
+        modalPrev();
+    } else if (!inField && e.key === 'ArrowRight') {
+        e.preventDefault();
+        modalNext();
+    }
+}
+
+async function findSimilar(id) {
+    document.getElementById('modal').classList.remove('active');
+    document.removeEventListener('keydown', escHandler);
+    currentMode = 'similar';
+    currentQuery = '';
+    grid.innerHTML = ''; cardData = [];
+    status.textContent = '비슷한 이미지 찾는 중...';
+    loadMoreBtn.style.display = 'none';
+    try {
+        const res = await fetch(`/api/similar/${id}?limit=${PAGE_SIZE}&view=${currentView}`);
+        const data = await res.json();
+        if (!res.ok || data.error) {
+            status.textContent = '오류: ' + (data.error || res.statusText);
+            return;
+        }
+        if (data.results.length === 0) {
+            status.textContent = '비슷한 이미지 없음';
+            return;
+        }
+        status.textContent = `#${id}와 비슷한 이미지 ${data.results.length}개`;
+        data.results.forEach(item => grid.appendChild(createCard(item, true)));
+    } catch (e) {
+        status.textContent = '요청 실패: ' + e.message;
+    }
+}
+
+function toggleSelection(id, card) {
+    if (selected.has(id)) {
+        selected.delete(id);
+        card.classList.remove('selected');
+    } else {
+        selected.add(id);
+        card.classList.add('selected');
+    }
+    updateBulkBar();
+}
+
+function clearSelection() {
+    selected.clear();
+    grid.querySelectorAll('.card.selected').forEach(c => c.classList.remove('selected'));
+    updateBulkBar();
+}
+
+function updateBulkBar() {
+    const bar = document.getElementById('bulkBar');
+    const cnt = document.getElementById('bulkCount');
+    if (selected.size === 0) {
+        bar.style.display = 'none';
+    } else {
+        bar.style.display = 'flex';
+        cnt.textContent = `${selected.size}개 선택됨`;
+    }
+}
+
+async function bulkAction(field, value) {
+    if (selected.size === 0) return;
+    const ids = Array.from(selected);
+    let ok = 0, fail = 0;
+    for (const id of ids) {
+        try {
+            const res = await fetch(`/api/image/${id}/state`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({[field]: value}),
+            });
+            if (res.ok) ok++;
+            else fail++;
+        } catch { fail++; }
+    }
+    clearSelection();
+    loadCounts();
+    refreshCurrentView();
+    if (fail > 0) alert(`완료: ${ok}건, 실패: ${fail}건`);
+}
+
+async function bulkAddTag() {
+    if (selected.size === 0) return;
+    const input = prompt(`선택한 ${selected.size}장에 추가할 태그 (쉼표로 여러 개):`);
+    if (!input) return;
+    const newTags = input.split(',').map(t => t.trim()).filter(Boolean);
+    if (newTags.length === 0) return;
+    const ids = Array.from(selected);
+    let ok = 0, fail = 0;
+    for (const id of ids) {
+        try {
+            const item = cardData.find(d => d.id === id);
+            const cur = item && item.user_tags ? item.user_tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+            const merged = [...cur];
+            for (const t of newTags) if (!merged.includes(t)) merged.push(t);
+            await saveUserTags(id, merged);
+            if (item) item.user_tags = merged.join(',');
+            ok++;
+        } catch { fail++; }
+    }
+    clearSelection();
+    refreshCurrentView();
+    alert(`태그 추가 완료: ${ok}건${fail > 0 ? `, 실패: ${fail}건` : ''}`);
+}
+
+function refreshCurrentView() {
+    if (currentMode === 'browse') {
+        browseOffset = 0;
+        grid.innerHTML = ''; cardData = [];
+        loadBrowse();
+    } else if (currentMode === 'search' && currentQuery) {
+        doSearch();
+    }
+}
+
+async function startIndex(reindex) {
+    const path = document.getElementById('folderInput').value.trim();
+    if (!path) {
+        alert('폴더 경로를 입력하세요');
+        return;
+    }
+    await postIndex(path, reindex);
+}
+
+async function reindexFolder(path) {
+    if (!confirm(`이 폴더의 모든 이미지를 처음부터 다시 분석합니다.\n시간 오래 걸림.\n\n${path}`)) return;
+    await postIndex(path, true);
+}
+
+async function postIndex(path, reindex) {
+    try {
+        const res = await fetch('/api/index', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({path, reindex, with_ai: false}),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+            alert('오류: ' + (data.error || res.statusText));
+            return;
+        }
+        pollProgress();
+    } catch (e) {
+        alert('요청 실패: ' + e.message);
+    }
+}
+
+async function startBackfill() {
+    if (!confirm('이미 추가된 이미지 중 캐릭터 인식이 안 된 것들을 분석합니다.\n이미지당 약 0.5초.\n\n진행할까요?')) return;
+    try {
+        const res = await fetch('/api/backfill_wd14', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+            alert('오류: ' + (data.error || res.statusText));
+            return;
+        }
+        pollProgress();
+    } catch (e) {
+        alert('요청 실패: ' + e.message);
+    }
+}
+
+async function togglePopover(name) {
+    const popover = document.getElementById(name + 'Popover');
+    if (!popover) return;
+    document.querySelectorAll('.popover').forEach(p => {
+        if (p !== popover) p.style.display = 'none';
+    });
+    const isOpen = popover.style.display === 'block';
+    if (isOpen) {
+        popover.style.display = 'none';
+    } else {
+        if (name === 'info') await refreshInfoPopover();
+        // 버튼 바로 아래에 띄우기 (position: fixed 기준)
+        const btn = document.querySelector(`button.icon-action[onclick*="togglePopover('${name}')"]`);
+        if (btn) {
+            const r = btn.getBoundingClientRect();
+            popover.style.top = (r.bottom + 6) + 'px';
+            popover.style.right = (window.innerWidth - r.right) + 'px';
+            popover.style.left = 'auto';
+        }
+        popover.style.display = 'block';
+    }
+}
+
+async function refreshInfoPopover() {
+    const body = document.getElementById('infoPopoverBody');
+    body.textContent = '로딩 중...';
+    try {
+        const res = await fetch('/api/info');
+        const d = await res.json();
+        body.innerHTML = `
+            <dl>
+                <dt>전체 이미지</dt><dd>${d.images.toLocaleString()}장</dd>
+                <dt>폴더</dt><dd>${d.folders}개</dd>
+                <dt>즐겨찾기</dt><dd>${d.favorites}장</dd>
+                <dt>숨김</dt><dd>${d.hidden}장</dd>
+                <dt>내 태그 단 것</dt><dd>${d.user_tagged}장</dd>
+                <dt>캐릭터 인식 안 됨</dt><dd>${d.wd_missing}장</dd>
+                <dt>AI 분석 안 됨</dt><dd>${d.vlm_missing}장</dd>
+                <dt>이름 사전</dt><dd>캐릭터 ${d.alias_chars} / 작품 ${d.alias_works}</dd>
+                <dt>처리 장치</dt><dd>${escapeHTML(d.device)}</dd>
+            </dl>
+        `;
+    } catch (e) {
+        body.textContent = '정보 로드 실패: ' + e.message;
+    }
+}
+
+async function openLog() {
+    try {
+        const res = await fetch('/api/open_log', { method: 'POST' });
+        const d = await res.json();
+        if (!res.ok || d.error) {
+            alert('로그 열기 실패: ' + (d.error || res.statusText));
+        }
+    } catch (e) {
+        alert('실패: ' + e.message);
+    }
+}
+
+document.addEventListener('click', (e) => {
+    if (e.target.closest('.popover') || e.target.closest('.icon-action')) return;
+    document.querySelectorAll('.popover').forEach(p => p.style.display = 'none');
+});
+
+async function restartServer() {
+    if (!confirm('서버를 재시작합니다 (~5초).\n진행 중이던 분석/인식은 중단됩니다.\n\n참고: UI 변경만 반영하고 싶으면 Ctrl+F5로 충분합니다.\n\n계속할까요?')) return;
+    try {
+        await fetch('/api/restart', { method: 'POST' });
+    } catch (e) {
+    }
+    pollUntilUp();
+}
+
+async function pollUntilUp() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    const elem = document.getElementById('progress');
+    const text = document.getElementById('progressText');
+    const fill = document.getElementById('progressFill');
+    elem.style.display = 'block';
+    elem.classList.remove('done', 'error');
+    text.textContent = '서버 재시작 중... ~5초';
+    fill.style.width = '15%';
+
+    let downSeen = false;
+    const maxAttempts = 300; // 60초 (200ms × 300)
+    for (let i = 0; i < maxAttempts; i++) {
+        await new Promise(r => setTimeout(r, 200));
+        try {
+            const res = await fetch('/api/index/status', { cache: 'no-store' });
+            if (res.ok) {
+                if (downSeen) {
+                    text.textContent = '✓ 서버 준비됨, 페이지 새로고침';
+                    fill.style.width = '100%';
+                    elem.classList.add('done');
+                    setTimeout(() => location.reload(), 300);
+                    return;
+                }
+            } else {
+                downSeen = true;
+            }
+        } catch {
+            downSeen = true;
+        }
+        const pct = 15 + Math.min(80, (i / maxAttempts) * 80);
+        fill.style.width = `${pct}%`;
+    }
+    text.textContent = '재시작 시간 초과 — 콘솔 창을 확인하세요';
+    elem.classList.add('error');
+}
+
+async function startAIAnalysis() {
+    if (!confirm('AI 분석을 시작합니다. 진행할까요?')) return;
+    try {
+        const res = await fetch('/api/backfill_vlm', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+            alert('오류: ' + (data.error || res.statusText));
+            return;
+        }
+        pollProgress();
+    } catch (e) {
+        alert('요청 실패: ' + e.message);
+    }
+}
+
+async function startRelocalize() {
+    try {
+        const res = await fetch('/api/relocalize', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+            alert('오류: ' + (data.error || res.statusText));
+            return;
+        }
+        alert(`매핑 다시 적용 완료\n갱신: ${data.updated}장 / 캐릭터 매핑 ${data.alias_count}개`);
+        if (currentMode === 'browse') {
+            browseOffset = 0;
+            grid.innerHTML = ''; cardData = [];
+            loadBrowse();
+        } else if (currentQuery) {
+            doSearch();
+        }
+    } catch (e) {
+        alert('요청 실패: ' + e.message);
+    }
+}
+
+async function modalToggleFavorite(id, btn) {
+    const next = !btn.classList.contains('active-fav');
+    try {
+        const res = await fetch(`/api/image/${id}/state`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({favorite: next}),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+        btn.classList.toggle('active-fav', data.favorite);
+        btn.textContent = data.favorite ? '★ 즐겨찾기 해제' : '★ 즐겨찾기';
+        const card = grid.querySelector(`.card[data-id="${id}"]`);
+        if (card) {
+            card.classList.toggle('favorited', data.favorite);
+            const cardFav = card.querySelector('.icon-btn.fav');
+            if (cardFav) cardFav.classList.toggle('active', data.favorite);
+        }
+        loadCounts();
+    } catch (e) { alert('실패: ' + e.message); }
+}
+
+function renderUserTagChips(imageId, tags) {
+    return tags.map(t => `<span class="tag user">${escapeHTML(t)}<span class="tag-x" onclick="removeUserTag(${imageId}, '${escapeAttr(t)}', this)" title="제거">×</span></span>`).join('');
+}
+
+async function saveUserTags(id, tags) {
+    const res = await fetch(`/api/image/${id}/tags`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({tags}),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+    return data;
+}
+
+function _refreshModalUserTags(id, tags) {
+    const box = document.getElementById('userTagsBox');
+    if (box) {
+        if (tags.length === 0) {
+            box.innerHTML = '<span class="folder-empty" style="padding:0;font-size:12px">없음</span>';
+        } else {
+            box.innerHTML = renderUserTagChips(id, tags);
+        }
+    }
+    _syncCardUserChips(id, tags);
+}
+
+function _syncCardUserChips(id, userTags) {
+    // cardData 갱신
+    const idx = cardData.findIndex(d => d.id === id);
+    if (idx >= 0) cardData[idx].user_tags = userTags.join(',');
+
+    const card = grid.querySelector(`.card[data-id="${id}"]`);
+    if (!card) return;
+
+    let tagsEl = card.querySelector('.card-tags');
+    // 기존 사용자 chip 제거
+    if (tagsEl) tagsEl.querySelectorAll('.tag.user').forEach(t => t.remove());
+
+    // 새 사용자 chip HTML (카드는 4개까지만 노출)
+    const userHTML = userTags.slice(0, 4).map(t => `<span class="tag user">${escapeHTML(t)}</span>`).join('');
+
+    if (userHTML) {
+        if (!tagsEl) {
+            tagsEl = document.createElement('div');
+            tagsEl.className = 'card-tags';
+            const info = card.querySelector('.card-info');
+            const desc = card.querySelector('.card-desc');
+            if (info) {
+                if (desc) info.insertBefore(tagsEl, desc);
+                else info.appendChild(tagsEl);
+            }
+        }
+        tagsEl.insertAdjacentHTML('afterbegin', userHTML);
+    } else if (tagsEl && tagsEl.children.length === 0) {
+        tagsEl.remove();
+    }
+}
+
+async function addUserTagFromInput(id) {
+    const input = document.getElementById('userTagInput');
+    if (!input) return;
+    const value = input.value.trim();
+    if (!value) return;
+    const newTags = value.split(',').map(t => t.trim()).filter(Boolean);
+    const current = parseTagsFromBox();
+    const merged = [...current];
+    for (const t of newTags) {
+        if (!merged.includes(t)) merged.push(t);
+    }
+    try {
+        const data = await saveUserTags(id, merged);
+        _refreshModalUserTags(id, data.tags);
+        input.value = '';
+    } catch (e) {
+        alert('태그 저장 실패: ' + e.message);
+    }
+}
+
+async function removeUserTag(id, tag, el) {
+    const current = parseTagsFromBox();
+    const next = current.filter(t => t !== tag);
+    try {
+        const data = await saveUserTags(id, next);
+        _refreshModalUserTags(id, data.tags);
+    } catch (e) {
+        alert('태그 제거 실패: ' + e.message);
+    }
+}
+
+function parseTagsFromBox() {
+    const box = document.getElementById('userTagsBox');
+    if (!box) return [];
+    return Array.from(box.querySelectorAll('.tag.user')).map(span => {
+        const x = span.querySelector('.tag-x');
+        if (x) {
+            const clone = span.cloneNode(true);
+            clone.querySelector('.tag-x').remove();
+            return clone.textContent.trim();
+        }
+        return span.textContent.trim();
+    });
+}
+
+async function modalToggleHidden(id, btn) {
+    const next = !btn.classList.contains('active-hide');
+    try {
+        const res = await fetch(`/api/image/${id}/state`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({hidden: next}),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+        btn.classList.toggle('active-hide', data.hidden);
+        btn.textContent = data.hidden ? '↺ 숨김 해제' : '✕ 숨기기';
+        const card = grid.querySelector(`.card[data-id="${id}"]`);
+        if (card) card.classList.toggle('hidden-card', data.hidden);
+        loadCounts();
+    } catch (e) { alert('실패: ' + e.message); }
+}
+
+async function pollProgress() {
+    const elem = document.getElementById('progress');
+    elem.style.display = 'block';
+
+    async function tick() {
+        try {
+            const res = await fetch('/api/index/status');
+            const s = await res.json();
+            renderProgress(s);
+            if (s.status === 'idle' || s.status === 'done' || s.status === 'error') {
+                if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+                await loadFolders();
+                loadCounts();
+                if (currentMode === 'browse') {
+                    browseOffset = 0;
+                    grid.innerHTML = ''; cardData = [];
+                    loadBrowse();
+                }
+            }
+        } catch (e) { console.error(e); }
+    }
+    if (pollTimer) clearInterval(pollTimer);
+    await tick();
+    pollTimer = setInterval(tick, 1000);
+}
+
+function renderProgress(s) {
+    const elem = document.getElementById('progress');
+    const text = document.getElementById('progressText');
+    const fill = document.getElementById('progressFill');
+
+    elem.classList.remove('done', 'error');
+
+    let label = '';
+    let pct = 0;
+
+    if (s.status === 'loading_model') {
+        label = s.message || 'AI 모델 준비 중...';
+        pct = 0;
+    } else if (s.status === 'running') {
+        pct = s.total > 0 ? Math.round((s.current / s.total) * 100) : 0;
+        const file = s.current_file || '...';
+        label = `[${s.folder}] 분석 중: ${s.current}/${s.total} (${pct}%) — ${file} | 완료 ${s.success}, 오류 ${s.errors}, 건너뜀 ${s.skipped}`;
+    } else if (s.status === 'done') {
+        pct = 100;
+        label = `✓ [${s.folder}] ${s.message}`;
+        elem.classList.add('done');
+    } else if (s.status === 'error') {
+        pct = 0;
+        label = `오류: ${s.message}`;
+        elem.classList.add('error');
+    } else {
+        label = '';
+        pct = 0;
+    }
+
+    text.textContent = label;
+    fill.style.width = `${pct}%`;
+}
+
+async function loadFolders() {
+    try {
+        const res = await fetch('/api/folders');
+        const data = await res.json();
+        const list = document.getElementById('folderList');
+        if (!data.folders || data.folders.length === 0) {
+            list.innerHTML = '<div class="folder-empty">아직 등록된 폴더가 없습니다. 위에서 경로를 입력하고 [인덱싱]을 누르세요.</div>';
+            return;
+        }
+        const totalMissing = data.wd_total_missing || 0;
+        const headerHTML = totalMissing > 0
+            ? `<div class="folder-empty" style="color:var(--warn);margin-bottom:8px">아직 캐릭터 인식이 안 된 이미지 ${totalMissing}장. 위쪽 [캐릭터 인식] 버튼을 누르세요.</div>`
+            : '';
+        list.innerHTML = headerHTML + data.folders.map(f => `
+            <div class="folder-item">
+                <div class="folder-info">
+                    <div class="folder-path">${escapeHTML(f.path)}</div>
+                    <div class="folder-meta">${f.image_count}장 · 마지막 추가: ${f.last_indexed_at || '—'}${f.wd_missing > 0 ? ` · 캐릭터 인식 안 됨 ${f.wd_missing}장` : ''}</div>
+                </div>
+                <div style="display:flex;gap:6px">
+                    <button onclick="useFolder('${escapeAttr(f.path)}')">경로 채우기</button>
+                    <button onclick="reindexFolder('${escapeAttr(f.path)}')" title="이 폴더의 모든 이미지를 다시 분석">전체 다시 분석</button>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function useFolder(path) {
+    document.getElementById('folderInput').value = path;
+    document.getElementById('folderInput').focus();
+}
+
+function toggleFolderPanel() {
+    const p = document.getElementById('folderPanel');
+    p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+
+async function copyImageToClipboard(imageId, btn) {
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '복사 중...';
+    try {
+        const res = await fetch(`/api/image/${imageId}/copy`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+        btn.textContent = '✓ 복사됨';
+        setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 1500);
+    } catch (e) {
+        alert('복사 실패: ' + e.message);
+        btn.textContent = original;
+        btn.disabled = false;
     }
 }
 
 function escapeHTML(str) {
-    if (!str) return '';
+    if (str === null || str === undefined) return '';
     const div = document.createElement('div');
-    div.textContent = str;
+    div.textContent = String(str);
     return div.innerHTML;
+}
+
+function escapeAttr(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/'/g, '&#39;')
+        .replace(/"/g, '&quot;')
+        .replace(/\\/g, '\\\\');
 }
 </script>
 
