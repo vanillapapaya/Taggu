@@ -762,20 +762,37 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
 
 
 def main():
+    here = Path(__file__).parent
+    default_cert = here / "192.168.0.75+2.pem"
+    default_key = here / "192.168.0.75+2-key.pem"
+
     parser = argparse.ArgumentParser(description="MemeTracker 웹 서버")
     parser.add_argument("--images", help="(선택) 시작 시 자동 등록할 이미지 폴더 경로")
     parser.add_argument("--db", default=DB_DEFAULT, help=f"SQLite DB 경로 (기본값: {DB_DEFAULT})")
     parser.add_argument("--host", default="0.0.0.0", help="호스트 (기본값: 0.0.0.0)")
     parser.add_argument("--port", type=int, default=8000, help="포트 (기본값: 8000)")
+    parser.add_argument("--certfile", default=str(default_cert) if default_cert.exists() else "",
+                        help="HTTPS 인증서 (PEM). 비우면 HTTP")
+    parser.add_argument("--keyfile", default=str(default_key) if default_key.exists() else "",
+                        help="HTTPS 개인키 (PEM). 비우면 HTTP")
     args = parser.parse_args()
 
     app = create_app(args.db, args.images)
-    print(f"\n서버 시작: http://{args.host}:{args.port}")
+
+    use_https = bool(args.certfile) and bool(args.keyfile) \
+        and Path(args.certfile).exists() and Path(args.keyfile).exists()
+    scheme = "https" if use_https else "http"
+    print(f"\n서버 시작: {scheme}://{args.host}:{args.port}")
     print(f"DB: {args.db}")
     if args.images:
         print(f"초기 이미지 폴더: {args.images}")
     print("브라우저에서 폴더 경로를 입력하고 [인덱싱] 버튼을 누르세요.")
-    uvicorn.run(app, host=args.host, port=args.port)
+
+    if use_https:
+        uvicorn.run(app, host=args.host, port=args.port,
+                    ssl_certfile=args.certfile, ssl_keyfile=args.keyfile)
+    else:
+        uvicorn.run(app, host=args.host, port=args.port)
 
 
 if __name__ == "__main__":

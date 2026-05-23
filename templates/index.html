@@ -874,7 +874,8 @@ let currentQuery = '';
 const PAGE_SIZE = 40;
 
 let pollTimer = null;
-const clipboardSupported = !!(navigator.clipboard && window.ClipboardItem);
+const isLocalAccess = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
+const canUseClipboardAPI = window.isSecureContext && !!navigator.clipboard && !!window.ClipboardItem;
 
 let cardData = [];
 let modalIndex = -1;
@@ -976,11 +977,11 @@ async function loadCounts() {
 }
 
 searchInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') doSearch();
+    if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) doSearch();
 });
 
 document.getElementById('folderInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') startIndex(false);
+    if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) startIndex(false);
 });
 
 async function doSearch() {
@@ -995,7 +996,7 @@ async function doSearch() {
 
     currentMode = 'search';
     currentQuery = q;
-    grid.innerHTML = '';
+    grid.innerHTML = ''; cardData = [];
     status.textContent = '검색 중...';
     loadMoreBtn.style.display = 'none';
 
@@ -1826,18 +1827,62 @@ function toggleFolderPanel() {
 async function copyImageToClipboard(imageId, btn) {
     const original = btn.textContent;
     btn.disabled = true;
-    btn.textContent = '복사 중...';
     try {
-        const res = await fetch(`/api/image/${imageId}/copy`, { method: 'POST' });
-        const data = await res.json();
-        if (!res.ok || data.error) throw new Error(data.error || res.statusText);
-        btn.textContent = '✓ 복사됨';
+        if (isLocalAccess) {
+            btn.textContent = '복사 중...';
+            const res = await fetch(`/api/image/${imageId}/copy`, { method: 'POST' });
+            const data = await res.json();
+            if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+            btn.textContent = '✓ 복사됨';
+        } else {
+            const item = cardData.find(c => c.id === imageId);
+            if (!item) throw new Error('이미지 정보 없음');
+            const isGif = /\.gif$/i.test(item.filename);
+
+            if (isGif || !canUseClipboardAPI) {
+                btn.textContent = '다운로드 중...';
+                const a = document.createElement('a');
+                a.href = item.image_url;
+                a.download = item.filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                btn.textContent = '✓ 다운로드';
+            } else {
+                btn.textContent = '복사 중...';
+                const pngBlobPromise = (async () => {
+                    const blob = await fetch(item.image_url).then(r => r.blob());
+                    return blob.type === 'image/png' ? blob : await convertImageToPng(blob);
+                })();
+                await navigator.clipboard.write([
+                    new ClipboardItem({ 'image/png': pngBlobPromise })
+                ]);
+                btn.textContent = '✓ 복사됨';
+            }
+        }
         setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 1500);
     } catch (e) {
         alert('복사 실패: ' + e.message);
         btn.textContent = original;
         btn.disabled = false;
     }
+}
+
+function convertImageToPng(blob) {
+    return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            canvas.getContext('2d').drawImage(img, 0, 0);
+            canvas.toBlob(b => b ? resolve(b) : reject(new Error('PNG 변환 실패')), 'image/png');
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('이미지 로드 실패')); };
+        img.src = url;
+    });
 }
 
 function escapeHTML(str) {

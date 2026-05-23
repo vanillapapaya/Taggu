@@ -43,5 +43,8 @@ server_log.txt
 server_err.txt
 .browser_data/
 
+# TLS certs / keys (mkcert)
+*.pem
+
 # Claude
 .claude/
