@@ -1514,7 +1514,7 @@ function createCard(item, showScore) {
                 onclick="event.stopPropagation(); toggleHidden(${item.id}, this)">${hideIcon}</button>
         </div>
         <button class="copy-btn" title="${copyTitle}" onclick="event.stopPropagation(); copyImageToClipboard(${item.id}, this)">복사</button>
-        <img src="${item.image_url}" alt="${escapeHTML(item.filename)}" loading="lazy"
+        <img src="${item.thumb_url || item.image_url}" alt="${escapeHTML(item.filename)}" loading="lazy"
              onerror="this.style.display='none'">
         <div class="card-info">
             <div class="card-filename"><span class="filename-text">${escapeHTML(item.filename)}</span>${scoreHTML}</div>

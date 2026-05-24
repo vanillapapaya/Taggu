@@ -44,6 +44,7 @@ images.db
 server_log.txt
 server_err.txt
 .browser_data/
+thumbnails/
 
 # TLS certs / keys (mkcert)
 *.pem

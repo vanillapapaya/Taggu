@@ -199,6 +199,24 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
             except Exception:
                 pass
 
+    def _row_to_item(row, **extras) -> dict:
+        """이미지 row → 클라이언트용 dict. 4개 검색/브라우즈 엔드포인트가 공유."""
+        item = {
+            "id": row["id"],
+            "filename": row["filename"],
+            "tags": row["tags"],
+            "description": row["description"],
+            "wd_chars_ko": row["wd_chars_ko"],
+            "wd_chars": row["wd_chars"],
+            "user_tags": row["user_tags"] or "",
+            "hidden": bool(row["hidden"]),
+            "favorite": bool(row["favorite"]),
+            "image_url": f"/images/{urllib.parse.quote(row['path'])}",
+            "thumb_url": f"/thumbs/{row['id']}",
+        }
+        item.update(extras)
+        return item
+
     index_lock = threading.Lock()
     index_state: dict = {
         "status": "idle",
@@ -347,19 +365,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         ).fetchall()
         conn.close()
         results = [
-            {
-                "id": row["id"],
-                "filename": row["filename"],
-                "tags": row["tags"],
-                "description": row["description"],
-                "wd_chars_ko": row["wd_chars_ko"],
-                "wd_chars": row["wd_chars"],
-                "user_tags": row["user_tags"] or "",
-                "hidden": bool(row["hidden"]),
-                "favorite": bool(row["favorite"]),
-                "image_url": f"/images/{urllib.parse.quote(row['path'])}",
-            }
-            for row in rows
+            _row_to_item(row) for row in rows
         ]
         return {"results": results, "total": len(results)}
 
@@ -519,20 +525,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
             if boost == 0:
                 continue
 
-            results.append({
-                "id": row["id"],
-                "filename": row["filename"],
-                "tags": row["tags"],
-                "description": row["description"],
-                "wd_chars_ko": row["wd_chars_ko"],
-                "wd_chars": row["wd_chars"],
-                "user_tags": user_tags_str,
-                "hidden": bool(row["hidden"]),
-                "favorite": bool(row["favorite"]),
-                "score": round(score + boost, 4),
-                "matched": True,
-                "image_url": f"/images/{urllib.parse.quote(row['path'])}",
-            })
+            results.append(_row_to_item(row, score=round(score + boost, 4), matched=True))
 
         results.sort(key=lambda x: x["score"], reverse=True)
         results = results[:limit]
@@ -554,21 +547,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         total = conn.execute(f"SELECT COUNT(*) FROM images WHERE {where}").fetchone()[0]
         conn.close()
 
-        results = [
-            {
-                "id": row["id"],
-                "filename": row["filename"],
-                "tags": row["tags"],
-                "description": row["description"],
-                "wd_chars_ko": row["wd_chars_ko"],
-                "wd_chars": row["wd_chars"],
-                "user_tags": row["user_tags"] or "",
-                "hidden": bool(row["hidden"]),
-                "favorite": bool(row["favorite"]),
-                "image_url": f"/images/{urllib.parse.quote(row['path'])}",
-            }
-            for row in rows
-        ]
+        results = [_row_to_item(row) for row in rows]
         return {"results": results, "total": total, "offset": offset}
 
     @app.post("/api/image/{image_id}/state")
@@ -753,20 +732,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
                 score = float(np.dot(target_emb, emb))
             except Exception:
                 continue
-            results.append({
-                "id": row["id"],
-                "filename": row["filename"],
-                "tags": row["tags"],
-                "description": row["description"],
-                "wd_chars_ko": row["wd_chars_ko"],
-                "wd_chars": row["wd_chars"],
-                "user_tags": row["user_tags"] or "",
-                "hidden": bool(row["hidden"]),
-                "favorite": bool(row["favorite"]),
-                "score": round(score, 4),
-                "matched": False,
-                "image_url": f"/images/{urllib.parse.quote(row['path'])}",
-            })
+            results.append(_row_to_item(row, score=round(score, 4), matched=False))
 
         results.sort(key=lambda x: -x["score"])
         results = results[:limit]
@@ -979,6 +945,40 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
             ],
             "wd_total_missing": wd_total_missing,
         }
+
+    THUMB_DIR = Path("thumbnails")
+    THUMB_SIZE = 480  # 카드 그리드는 240px 표시, retina 대비 2x
+
+    @app.get("/thumbs/{image_id}")
+    async def serve_thumbnail(image_id: int):
+        conn = get_db()
+        row = conn.execute("SELECT path, mtime FROM images WHERE id=?", (image_id,)).fetchone()
+        conn.close()
+        if not row:
+            return JSONResponse({"error": "이미지 없음"}, status_code=404)
+
+        src = Path(row["path"])
+        if not src.exists():
+            return JSONResponse({"error": "원본 파일 없음"}, status_code=404)
+
+        THUMB_DIR.mkdir(exist_ok=True)
+        mtime_int = int(row["mtime"] or src.stat().st_mtime)
+        cache = THUMB_DIR / f"{image_id}_{mtime_int}_{THUMB_SIZE}.webp"
+
+        if not cache.exists():
+            try:
+                from PIL import Image as PILImage
+                img = PILImage.open(src)
+                # GIF 등 애니메이션은 첫 프레임만 (정적 썸네일)
+                img.thumbnail((THUMB_SIZE, THUMB_SIZE), PILImage.LANCZOS)
+                if img.mode not in ("RGB", "RGBA"):
+                    img = img.convert("RGB")
+                img.save(cache, "WEBP", quality=80, method=4)
+            except Exception as e:
+                # 썸네일 생성 실패 시 원본 fallback
+                return FileResponse(str(src))
+
+        return FileResponse(str(cache), media_type="image/webp")
 
     @app.get("/images/{file_path:path}")
     async def serve_image(file_path: str):
