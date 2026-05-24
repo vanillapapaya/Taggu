@@ -1907,10 +1907,20 @@ const GUIDE_STEPS = [
         emoji: '🤖',
         title: '7단계 — AI 종류 고르기',
         html: '<span class="hilight">⚙</span> 버튼에서 4가지 중 하나를 골라요:<br><br>' +
-              '🖥️ <strong>로컬 (GPU 있으면)</strong> — 무료, 인터넷 X<br>' +
+              '🖥️ <strong>로컬 (GPU 있으면)</strong> — 무료<br>' +
               '🌐 <strong>OpenAI / Claude</strong> — 사진 1장당 약 ₩4<br>' +
               '✨ <strong>Gemini Flash</strong> — 거의 무료에 빠름<br><br>' +
               '<span style="color:var(--text-muted);font-size:13px">잘 모르겠으면 Gemini로! API 키는 무료로 받을 수 있어요.</span>',
+    },
+    {
+        emoji: '📥',
+        title: '잠깐 — 로컬 모드는 처음에…',
+        html: '로컬 모드를 처음 쓰면 <strong>AI 모델을 인터넷에서 받아와요</strong>.<br><br>' +
+              '· 7B 모델: <strong>~15GB</strong> (인터넷 속도에 따라 10~30분)<br>' +
+              '· 캐릭터 인식: ~400MB (1~2분)<br>' +
+              '· CLIP 검색: ~600MB (1~2분)<br><br>' +
+              '<strong>한 번만</strong> 받아두면 다음부턴 인터넷 없이도 동작!<br>' +
+              '<span style="color:var(--text-muted);font-size:13px">진행률 막대가 멈춰있어 보여도 다운로드 중일 수 있어요. 처음만 인내심!</span>',
     },
     {
         emoji: '💰',
