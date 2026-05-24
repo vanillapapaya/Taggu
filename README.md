@@ -201,19 +201,19 @@ MemeTracker/
 
 ```mermaid
 flowchart TD
-    A[사용자: 폴더 경로 입력] --> B[POST /api/index]
-    B --> C{index_lock<br/>확보?}
-    C -->|아니오| D[409 - 다른 작업 중]
-    C -->|예| E[background thread<br/>run_indexing]
-    E --> F[scan_images: 폴더 재귀 탐색]
-    F --> G{각 이미지<br/>mtime 비교}
+    A["사용자: 폴더 경로 입력"] --> B["POST /api/index"]
+    B --> C{"index_lock 확보?"}
+    C -->|아니오| D["409 - 다른 작업 중"]
+    C -->|예| E["background thread run_indexing"]
+    E --> F["scan_images: 폴더 재귀 탐색"]
+    F --> G{"각 이미지 mtime 비교"}
     G -->|기존과 동일| H[skip]
-    G -->|새 or 변경| I[처리 큐에 추가]
-    I --> J[VLM provider.analyze]
-    J --> K[generate_embedding<br/>CLIP 512d]
-    K --> L[_wd14_for_image<br/>캐릭터 인식 + 한국어 매핑]
-    L --> M[INSERT/UPDATE images table]
-    M --> N{큐 비었나?}
+    G -->|새 or 변경| I["처리 큐에 추가"]
+    I --> J["VLM provider.analyze()"]
+    J --> K["generate_embedding (CLIP 512d)"]
+    K --> L["_wd14_for_image (캐릭터 인식 + 한국어 매핑)"]
+    L --> M["INSERT/UPDATE images table"]
+    M --> N{"큐 비었나?"}
     N -->|아니오| J
     N -->|예| O[done]
 ```
@@ -222,27 +222,27 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    A[검색어 입력] --> B[/api/search?q=쿼리]
-    B --> C[q_terms = 소문자 split]
-    C --> D{각 이미지 row}
-    D --> E[wd_chars_ko<br/>+ tags<br/>+ description<br/>+ user_tags<br/>모두 lower-join]
-    E --> F{모든 q_terms가<br/>이 문자열에 포함?}
-    F -->|예| G[matched=true]
-    F -->|아니오| H[matched=false]
-    G --> I[score=1 + len matches]
+    A["검색어 입력"] --> B["GET /api/search?q=쿼리"]
+    B --> C["q_terms = 소문자 split"]
+    C --> D{"각 이미지 row"}
+    D --> E["wd_chars_ko + tags + description + user_tags 모두 lower-join"]
+    E --> F{"모든 q_terms가 이 문자열에 포함?"}
+    F -->|예| G["matched=true"]
+    F -->|아니오| H["matched=false"]
+    G --> I["score = 1 + 매치 길이"]
     H --> I
-    I --> J[score 내림차순 정렬<br/>상위 limit개 반환]
+    I --> J["score 내림차순 정렬, 상위 limit개 반환"]
 ```
 
 ### 유사 이미지
 
 ```mermaid
 flowchart LR
-    A[모달 ≈ 클릭] --> B[/api/similar/{id}]
-    B --> C[query_emb = images.id의<br/>clip_embedding]
-    C --> D[모든 이미지 emb 로드]
-    D --> E[코사인 유사도 계산<br/>dot product on L2-norm vectors]
-    E --> F[상위 K개 반환<br/>자기 자신 제외]
+    A["모달 ≈ 클릭"] --> B["GET /api/similar/(id)"]
+    B --> C["query_emb = images.id의 clip_embedding"]
+    C --> D["모든 이미지 emb 로드"]
+    D --> E["코사인 유사도 계산 (dot product on L2-norm vectors)"]
+    E --> F["상위 K개 반환 (자기 자신 제외)"]
 ```
 
 ### 태그 이동 (atomic)
