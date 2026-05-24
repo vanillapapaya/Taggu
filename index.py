@@ -30,6 +30,7 @@ import torch
 from PIL import Image
 
 import wd14_tagger
+import providers
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 DB_DEFAULT = "images.db"
@@ -37,49 +38,56 @@ DB_DEFAULT = "images.db"
 WD14_GENERAL_TOPK = 30
 
 
+_MIGRATIONS: list[tuple[str, str]] = [
+    # (column_name, column_type) — 신규 컬럼은 여기에 append만 하면 됨
+    ("mtime", "REAL"),
+    ("folder_id", "INTEGER"),
+    ("wd_chars", "TEXT"),
+    ("wd_chars_ko", "TEXT"),
+    ("wd_general", "TEXT"),
+    ("hidden", "INTEGER DEFAULT 0"),
+    ("favorite", "INTEGER DEFAULT 0"),
+    ("user_tags", "TEXT"),
+]
+
+
 def init_db(db_path: str) -> sqlite3.Connection:
-    """SQLite DB 초기화 + 마이그레이션. WAL 모드로 동시 읽기/쓰기 허용."""
+    """SQLite DB 초기화 + 마이그레이션. WAL 모드, 마이그레이션은 단일 트랜잭션."""
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
+    # PRAGMA는 트랜잭션 밖에서
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS images (
-            id INTEGER PRIMARY KEY,
-            path TEXT UNIQUE,
-            filename TEXT,
-            tags TEXT,
-            description TEXT,
-            clip_embedding BLOB,
-            indexed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS folders (
-            id INTEGER PRIMARY KEY,
-            path TEXT UNIQUE NOT NULL,
-            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            last_indexed_at TIMESTAMP
-        )
-    """)
-    cols = {row["name"] for row in conn.execute("PRAGMA table_info(images)")}
-    if "mtime" not in cols:
-        conn.execute("ALTER TABLE images ADD COLUMN mtime REAL")
-    if "folder_id" not in cols:
-        conn.execute("ALTER TABLE images ADD COLUMN folder_id INTEGER")
-    if "wd_chars" not in cols:
-        conn.execute("ALTER TABLE images ADD COLUMN wd_chars TEXT")
-    if "wd_chars_ko" not in cols:
-        conn.execute("ALTER TABLE images ADD COLUMN wd_chars_ko TEXT")
-    if "wd_general" not in cols:
-        conn.execute("ALTER TABLE images ADD COLUMN wd_general TEXT")
-    if "hidden" not in cols:
-        conn.execute("ALTER TABLE images ADD COLUMN hidden INTEGER DEFAULT 0")
-    if "favorite" not in cols:
-        conn.execute("ALTER TABLE images ADD COLUMN favorite INTEGER DEFAULT 0")
-    if "user_tags" not in cols:
-        conn.execute("ALTER TABLE images ADD COLUMN user_tags TEXT")
-    conn.commit()
+
+    try:
+        conn.execute("BEGIN")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS images (
+                id INTEGER PRIMARY KEY,
+                path TEXT UNIQUE,
+                filename TEXT,
+                tags TEXT,
+                description TEXT,
+                clip_embedding BLOB,
+                indexed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS folders (
+                id INTEGER PRIMARY KEY,
+                path TEXT UNIQUE NOT NULL,
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_indexed_at TIMESTAMP
+            )
+        """)
+        cols = {row["name"] for row in conn.execute("PRAGMA table_info(images)")}
+        for col, col_type in _MIGRATIONS:
+            if col not in cols:
+                conn.execute(f"ALTER TABLE images ADD COLUMN {col} {col_type}")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     return conn
 
 
@@ -238,7 +246,7 @@ def backfill_vlm(
             continue
 
         try:
-            tags, description = provider.analyze(path)
+            tags, description = providers.with_retry(lambda: provider.analyze(path))
             conn.execute(
                 "UPDATE images SET tags=?, description=? WHERE id=?",
                 (tags, description, row["id"]),
@@ -366,7 +374,7 @@ def index_folder(
             progress["current_file"] = image_path.name
         try:
             if use_vlm and vlm_provider is not None:
-                tags, description = vlm_provider.analyze(image_path)
+                tags, description = providers.with_retry(lambda: vlm_provider.analyze(image_path))
             else:
                 tags, description = "", ""
             embedding = generate_embedding(image_path, clip_model, clip_preprocess, device)

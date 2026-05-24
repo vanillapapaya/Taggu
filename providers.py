@@ -341,6 +341,30 @@ def settings_for_display(settings: dict) -> dict:
     return out
 
 
+def with_retry(fn, max_attempts: int = 3, base_delay: float = 1.0):
+    """rate limit / 일시적 네트워크 에러에 대해 exponential backoff 재시도.
+
+    영구 에러(401/403, 잘못된 키 등)는 즉시 raise — 무한 재시도 방지.
+    """
+    import time
+    last_err = None
+    for attempt in range(max_attempts):
+        try:
+            return fn()
+        except Exception as e:
+            last_err = e
+            msg = str(e).lower()
+            # 영구 에러 — 재시도 무의미
+            if any(k in msg for k in ("401", "403", "invalid api key", "permission denied", "unauthorized")):
+                raise
+            # 마지막 시도면 그냥 raise
+            if attempt == max_attempts - 1:
+                raise
+            # backoff: 1s, 2s, 4s
+            time.sleep(base_delay * (2 ** attempt))
+    raise last_err  # unreachable
+
+
 def detect_vram_gb() -> Optional[float]:
     """CUDA VRAM 총량 (GB). 감지 실패 시 None."""
     try:
