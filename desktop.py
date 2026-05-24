@@ -28,7 +28,11 @@ LOG_PATH = ROOT / "server_log.txt"
 BROWSER_DATA = ROOT / ".browser_data"
 HOST = "127.0.0.1"
 PORT = 8000
-URL = f"http://{HOST}:{PORT}"
+# app.py 가 인증서 페어를 발견하면 자동으로 HTTPS 로 뜨므로 URL 스킴도 맞춰준다.
+_CERT = ROOT / "192.168.0.75+2.pem"
+_KEY = ROOT / "192.168.0.75+2-key.pem"
+_SCHEME = "https" if _CERT.exists() and _KEY.exists() else "http"
+URL = f"{_SCHEME}://{HOST}:{PORT}"
 SINGLE_INSTANCE_PORT = 50815
 
 CREATE_NO_WINDOW = 0x08000000
@@ -115,15 +119,15 @@ def main():
     lock = acquire_single_instance()
     if lock is None:
         show_message(
-            "MemeTracker",
-            "MemeTracker가 이미 실행 중입니다.\n작업 표시줄에서 윈도우를 확인하세요.",
+            "Yoink",
+            "Yoink가 이미 실행 중입니다.\n작업 표시줄에서 윈도우를 확인하세요.",
         )
         sys.exit(0)
 
     browser = find_browser()
     if browser is None:
         show_message(
-            "MemeTracker - 오류",
+            "Yoink - 오류",
             "Microsoft Edge 또는 Google Chrome을 찾을 수 없습니다.\n둘 중 하나를 설치하세요.",
             icon=0x10,
         )
@@ -147,7 +151,7 @@ def main():
             except Exception:
                 pass
         show_message(
-            "MemeTracker - 오류",
+            "Yoink - 오류",
             f"서버가 120초 내에 응답하지 않았습니다.\n로그: {LOG_PATH}",
             icon=0x10,
         )

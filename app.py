@@ -1,5 +1,5 @@
 """
-MemeTracker 웹 서버: 검색 + 폴더 인덱싱 + 이미지 서빙
+Yoink 웹 서버: 검색 + 폴더 인덱싱 + 이미지 서빙
 
 사용법:
     python app.py
@@ -8,6 +8,7 @@ MemeTracker 웹 서버: 검색 + 폴더 인덱싱 + 이미지 서빙
 """
 
 import argparse
+import socket
 import sqlite3
 import threading
 import time
@@ -29,6 +30,7 @@ import wd14_tagger
 from index import (
     backfill_vlm,
     backfill_wd14,
+    dedupe_all_tags,
     index_folder,
     init_db,
     load_vlm,
@@ -54,6 +56,17 @@ class StateRequest(BaseModel):
 
 class TagsRequest(BaseModel):
     tags: list[str]
+
+
+class FieldTagsRequest(BaseModel):
+    field: str  # "user_tags" | "wd_chars_ko" | "tags" | "wd_general"
+    tags: list[str]
+
+
+class MoveTagRequest(BaseModel):
+    tag: str
+    source: str  # "user" | "char" | "ai"
+    target: str  # "user" | "char" | "ai"
 
 
 MAX_USER_TAG_LEN = 50
@@ -84,8 +97,33 @@ def _is_relative(child: Path, parent: Path) -> bool:
         return False
 
 
+def _collect_local_ips() -> set[str]:
+    """현재 머신이 가지고 있는 모든 IP 주소를 수집.
+
+    같은 머신에서 LAN IP(https://192.168.x.x)로 접속해도 로컬로 인식하기 위해 사용.
+    """
+    ips: set[str] = {"127.0.0.1", "::1"}
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None):
+            ips.add(info[4][0])
+    except Exception:
+        pass
+    return ips
+
+
+_LOCAL_IPS: set[str] = _collect_local_ips()
+
+
+def _is_local_request(request: Request) -> bool:
+    """요청이 서버와 같은 머신에서 왔는지 판정 (URL과 무관)."""
+    client = request.client
+    if not client:
+        return False
+    return client.host in _LOCAL_IPS
+
+
 def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
-    app = FastAPI(title="MemeTracker")
+    app = FastAPI(title="Yoink")
     templates = Jinja2Templates(directory="templates")
 
     conn0 = init_db(db_path)
@@ -254,7 +292,12 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         conn.close()
         return templates.TemplateResponse(
             "index.html",
-            {"request": request, "total": total, "wd_missing": wd_missing},
+            {
+                "request": request,
+                "total": total,
+                "wd_missing": wd_missing,
+                "is_local": _is_local_request(request),
+            },
         )
 
     @app.get("/api/random")
@@ -285,12 +328,17 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         return {"results": results, "total": len(results)}
 
     @app.post("/api/image/{image_id}/copy")
-    def copy_image_to_os_clipboard(image_id: int):
+    def copy_image_to_os_clipboard(image_id: int, request: Request):
         """이미지 파일 자체를 OS 클립보드에 복사 (탐색기에서 파일 복사한 것과 동일).
 
         Discord/Slack/카톡 등에 paste 시 파일 그대로 업로드 → GIF 애니메이션 유지.
-        Windows 전용 (PowerShell Set-Clipboard).
+        Windows 전용 (PowerShell Set-Clipboard). 같은 머신에서 온 요청만 허용.
         """
+        if not _is_local_request(request):
+            return JSONResponse(
+                {"error": "서버 클립보드는 같은 머신에서만 사용 가능"},
+                status_code=403,
+            )
         import subprocess as _sp
         conn = get_db()
         row = conn.execute("SELECT path FROM images WHERE id=?", (image_id,)).fetchone()
@@ -366,6 +414,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         if ICON_PATH.exists():
             return FileResponse(str(ICON_PATH), media_type="image/x-icon")
         return JSONResponse({"error": "no icon"}, status_code=404)
+
 
     def _view_filter(view: str) -> str:
         """view 모드 → SQL WHERE 절 (선행 공백 + AND 또는 빈 문자열)."""
@@ -511,6 +560,37 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         conn.close()
         return {"id": row["id"], "hidden": bool(row["hidden"]), "favorite": bool(row["favorite"])}
 
+    @app.post("/api/image/{image_id}/field_tags")
+    async def set_field_tags(image_id: int, req: FieldTagsRequest):
+        """임의의 태그 필드(user_tags/wd_chars_ko/tags/wd_general) 갱신 + dedupe."""
+        allowed = {"user_tags", "wd_chars_ko", "tags", "wd_general"}
+        if req.field not in allowed:
+            return JSONResponse({"error": "허용되지 않는 필드"}, status_code=400)
+        seen: set[str] = set()
+        cleaned: list[str] = []
+        for t in req.tags:
+            if not isinstance(t, str):
+                continue
+            t = t.strip()
+            if t and t not in seen:
+                seen.add(t)
+                cleaned.append(t)
+        if req.field == "user_tags":
+            cleaned = _normalize_user_tags(cleaned)
+            joined = ",".join(cleaned)
+        else:
+            joined = ", ".join(cleaned)
+        conn = get_db()
+        cur = conn.execute(
+            f"UPDATE images SET {req.field}=? WHERE id=?", (joined, image_id)
+        )
+        conn.commit()
+        if cur.rowcount == 0:
+            conn.close()
+            return JSONResponse({"error": "이미지 없음"}, status_code=404)
+        conn.close()
+        return {"id": image_id, "field": req.field, "tags": cleaned}
+
     @app.post("/api/image/{image_id}/tags")
     async def set_image_tags(image_id: int, req: TagsRequest):
         cleaned = _normalize_user_tags(req.tags)
@@ -523,6 +603,73 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
             return JSONResponse({"error": "이미지 없음"}, status_code=404)
         conn.close()
         return {"id": image_id, "user_tags": joined, "tags": cleaned}
+
+    @app.post("/api/image/{image_id}/move_tag")
+    async def move_tag(image_id: int, req: MoveTagRequest):
+        """user/char/ai 3필드 간 단일 태그 이동 (atomic, 6방향).
+
+        source/target ∈ {"user", "char", "ai"}.
+            user → user_tags ("," 구분), char → wd_chars_ko (", "), ai → tags (", ").
+        """
+        field_map = {"user": "user_tags", "char": "wd_chars_ko", "ai": "tags"}
+        if req.source not in field_map or req.target not in field_map:
+            return JSONResponse({"error": "source/target는 user|char|ai 중 하나"}, status_code=400)
+        if req.source == req.target:
+            return JSONResponse({"error": "source와 target이 같음"}, status_code=400)
+        tag = req.tag.strip()
+        if not tag:
+            return JSONResponse({"error": "빈 태그"}, status_code=400)
+
+        src_field = field_map[req.source]
+        dst_field = field_map[req.target]
+
+        conn = get_db()
+        row = conn.execute(
+            "SELECT user_tags, wd_chars_ko, tags FROM images WHERE id=?", (image_id,)
+        ).fetchone()
+        if not row:
+            conn.close()
+            return JSONResponse({"error": "이미지 없음"}, status_code=404)
+
+        fields = {
+            "user_tags": [t.strip() for t in (row["user_tags"] or "").split(",") if t.strip()],
+            "wd_chars_ko": [t.strip() for t in (row["wd_chars_ko"] or "").split(",") if t.strip()],
+            "tags": [t.strip() for t in (row["tags"] or "").split(",") if t.strip()],
+        }
+        fields[src_field] = [t for t in fields[src_field] if t != tag]
+        if tag not in fields[dst_field]:
+            fields[dst_field].append(tag)
+        if dst_field == "user_tags":
+            fields["user_tags"] = _normalize_user_tags(fields["user_tags"])
+
+        def _join(field: str) -> str:
+            sep = "," if field == "user_tags" else ", "
+            return sep.join(fields[field])
+
+        conn.execute(
+            f"UPDATE images SET {src_field}=?, {dst_field}=? WHERE id=?",
+            (_join(src_field), _join(dst_field), image_id),
+        )
+        conn.commit()
+        conn.close()
+        return {
+            "id": image_id,
+            "user_tags": fields["user_tags"],
+            "wd_chars_ko": fields["wd_chars_ko"],
+            "tags": fields["tags"],
+        }
+
+    @app.post("/api/dedupe_tags")
+    async def do_dedupe_tags():
+        """모든 이미지의 tags / wd_chars(_ko) / wd_general / user_tags 중복 정리."""
+        if index_lock.locked():
+            return JSONResponse({"error": "다른 작업이 진행 중입니다"}, status_code=409)
+        try:
+            result = dedupe_all_tags(db_path)
+            return {"status": "done", **result}
+        except Exception as e:
+            traceback.print_exc()
+            return JSONResponse({"error": str(e)}, status_code=500)
 
     @app.post("/api/relocalize")
     async def do_relocalize():
@@ -603,7 +750,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
             root.withdraw()
             root.attributes("-topmost", True)
             try:
-                path = filedialog.askdirectory(title="MemeTracker - 인덱싱할 폴더 선택")
+                path = filedialog.askdirectory(title="Yoink - 인덱싱할 폴더 선택")
             finally:
                 root.destroy()
             return {"path": path or None}
@@ -766,7 +913,7 @@ def main():
     default_cert = here / "192.168.0.75+2.pem"
     default_key = here / "192.168.0.75+2-key.pem"
 
-    parser = argparse.ArgumentParser(description="MemeTracker 웹 서버")
+    parser = argparse.ArgumentParser(description="Yoink 웹 서버")
     parser.add_argument("--images", help="(선택) 시작 시 자동 등록할 이미지 폴더 경로")
     parser.add_argument("--db", default=DB_DEFAULT, help=f"SQLite DB 경로 (기본값: {DB_DEFAULT})")
     parser.add_argument("--host", default="0.0.0.0", help="호스트 (기본값: 0.0.0.0)")

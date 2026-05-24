@@ -3,7 +3,7 @@
 ## 베이스 URL
 ```
 개발: http://localhost:8000/api/v1
-운영: https://api.memetracker.app/v1
+운영: https://api.yoink.app/v1
 ```
 
 ## 인증
@@ -34,7 +34,7 @@
     "results": [
         {
             "id": "uuid",
-            "thumbnail_url": "https://r2.memetracker.app/thumbnails/...",
+            "thumbnail_url": "https://r2.yoink.app/thumbnails/...",
             "source_url": "https://twitter.com/...",
             "source": "twitter",
             "tags": ["meme", "reaction"],

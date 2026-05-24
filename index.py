@@ -142,6 +142,49 @@ def load_clip(device: str):
     return model, preprocess
 
 
+def _dedupe_csv(s: str) -> str:
+    """Comma-separated 태그 문자열 중복 제거 (순서 유지)."""
+    if not s:
+        return ""
+    seen = set()
+    out = []
+    for t in s.split(","):
+        t = t.strip()
+        if t and t not in seen:
+            seen.add(t)
+            out.append(t)
+    return ", ".join(out)
+
+
+def dedupe_all_tags(db_path: str) -> dict:
+    """모든 이미지의 tags / wd_chars / wd_chars_ko / wd_general / user_tags에서 중복 제거."""
+    columns = ["tags", "wd_chars", "wd_chars_ko", "wd_general", "user_tags"]
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(f"SELECT id, {', '.join(columns)} FROM images").fetchall()
+    changed = 0
+    for row in rows:
+        updates = {}
+        for col in columns:
+            original = row[col] or ""
+            cleaned = _dedupe_csv(original)
+            # user_tags 형식은 콤마-공백 없이 콤마만이라 별도 처리
+            if col == "user_tags":
+                cleaned = ",".join([t.strip() for t in cleaned.split(",") if t.strip()])
+            if cleaned != original:
+                updates[col] = cleaned
+        if updates:
+            cols_sql = ", ".join(f"{c}=?" for c in updates)
+            conn.execute(
+                f"UPDATE images SET {cols_sql} WHERE id=?",
+                (*updates.values(), row["id"]),
+            )
+            changed += 1
+    conn.commit()
+    conn.close()
+    return {"checked": len(rows), "changed": changed}
+
+
 def generate_tags(
     image_path: Path,
     vlm_model,
@@ -184,7 +227,7 @@ def generate_tags(
     if not tags and not description:
         description = response
 
-    return tags, description
+    return _dedupe_csv(tags), description
 
 
 def generate_embedding(

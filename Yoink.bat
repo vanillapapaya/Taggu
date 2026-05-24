@@ -25,11 +25,15 @@ if errorlevel 1 (
     exit /b 1
 )
 
+REM HTTPS 인증서가 있으면 https://, 없으면 http:// 로 열기
+set "SCHEME=http"
+if exist "192.168.0.75+2.pem" if exist "192.168.0.75+2-key.pem" set "SCHEME=https"
+
 REM Open browser once port 8000 is listening (only on first launch).
-start "" /min powershell -NoProfile -ExecutionPolicy Bypass -Command "for ($i=0; $i -lt 240; $i++) { try { $c=New-Object Net.Sockets.TcpClient; $c.Connect('127.0.0.1',8000); $c.Close(); break } catch { Start-Sleep -Milliseconds 500 } }; Start-Process 'http://localhost:8000'"
+start "" /min powershell -NoProfile -ExecutionPolicy Bypass -Command "for ($i=0; $i -lt 240; $i++) { try { $c=New-Object Net.Sockets.TcpClient; $c.Connect('127.0.0.1',8000); $c.Close(); break } catch { Start-Sleep -Milliseconds 500 } }; Start-Process '%SCHEME%://localhost:8000'"
 
 echo ============================================================
-echo   MemeTracker server launcher
+echo   Yoink server launcher
 echo   - Browser opens automatically once the server is ready.
 echo   - Web UI [Restart] button restarts the server (exit 42).
 echo   - To fully stop: press Ctrl+C and answer Y, or close window.

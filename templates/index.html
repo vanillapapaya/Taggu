@@ -3,32 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MemeTracker</title>
+    <meta name="theme-color" content="#0F0F0F">
+    <meta name="color-scheme" content="dark">
+    <title>Yoink</title>
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
+        html { scrollbar-gutter: stable; }
+
         :root {
-            --bg: #1f1d1a;
-            --bg-elev: #2a2723;
-            --bg-card: #34302b;
-            --border: #45403a;
-            --border-strong: #5a544c;
-            --text: #faf6ee;
-            --text-dim: #d4cdbd;
-            --text-muted: #9a9183;
-            --accent: #d97757;
-            --accent-hover: #e58a6e;
-            --char: #a3d6c8;
-            --char-bg: rgba(163,214,200,0.18);
-            --work: #e0c89a;
-            --work-bg: rgba(224,200,154,0.16);
-            --fav: #f0b232;
-            --fav-bg: rgba(240,178,50,0.15);
-            --tag-bg: #423d36;
-            --success: #93c47d;
-            --warn: #e2b96f;
-            --error: #d97070;
+            --bg: #0F0F0F;
+            --bg-elev: #1F1F1F;
+            --bg-card: #272727;
+            --border: #3F3F3F;
+            --border-strong: #525252;
+            --text: #F1F1F1;
+            --text-dim: #C6C6C6;
+            --text-muted: #8C8C8C;
+            --accent: #FFDD88;
+            --accent-hover: #FFE5A0;
+            --accent-text: #0F0F0F;
+            --char: #FF8899;
+            --char-bg: rgba(255,136,153,0.16);
+            --work: #77DD77;
+            --work-bg: rgba(119,221,119,0.16);
+            --fav: #77BBDD;
+            --fav-bg: rgba(119,187,221,0.18);
+            --user: #7777AA;
+            --user-bg: rgba(119,119,170,0.22);
+            --tag-bg: #3F3F3F;
+            --success: #77DD77;
+            --warn: #FFDD88;
+            --error: #E04A5D;
             --radius: 12px;
             --radius-sm: 8px;
             --radius-pill: 999px;
@@ -48,7 +55,7 @@
             position: sticky;
             top: 0;
             z-index: 100;
-            background: rgba(31,29,26,0.92);
+            background: rgba(15,15,15,0.92);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--border);
@@ -74,37 +81,49 @@
         .search-box {
             flex: 1;
             display: flex;
-            gap: 10px;
+            gap: 6px;
         }
 
         .search-box input {
             flex: 1;
-            padding: 12px 18px;
+            padding: 6px 12px;
             border: 1px solid var(--border);
-            border-radius: var(--radius);
+            border-radius: var(--radius-sm);
             background: var(--bg-elev);
             color: var(--text);
-            font-size: 15px;
+            font-size: 13px;
             font-family: inherit;
             outline: none;
             transition: border-color 0.15s, background 0.15s;
+            height: 32px;
         }
         .search-box input:focus { border-color: var(--accent); background: var(--bg-card); }
         .search-box input::placeholder { color: var(--text-muted); }
 
         .search-box button {
-            padding: 12px 22px;
+            padding: 0 14px;
+            height: 32px;
             background: var(--accent);
-            color: #fff;
+            color: var(--accent-text);
             border: none;
-            border-radius: var(--radius);
-            font-size: 14px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
             font-weight: 500;
             cursor: pointer;
             white-space: nowrap;
-            transition: background 0.15s;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
         }
         .search-box button:hover { background: var(--accent-hover); }
+        .search-box button.secondary {
+            background: var(--bg-elev);
+            color: var(--text-dim);
+            border: 1px solid var(--border);
+        }
+        .search-box button.secondary:hover {
+            background: var(--bg-card);
+            color: var(--text);
+            border-color: var(--border-strong);
+        }
 
         .stats {
             font-size: 13px;
@@ -142,33 +161,36 @@
             align-items: center;
         }
         .icon-action {
-            width: 36px;
-            height: 36px;
+            width: 32px;
+            height: 32px;
             background: transparent;
-            border: 1px solid var(--border);
-            color: var(--text-dim);
+            border: none;
+            color: var(--text-muted);
             border-radius: var(--radius-sm);
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 16px;
+            font-size: 15px;
             line-height: 1;
             padding: 0;
-            transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
+            transition: background 0.15s, color 0.15s, transform 0.1s;
             font-family: inherit;
         }
         .icon-action:hover {
             background: var(--bg-elev);
             color: var(--text);
-            border-color: var(--border-strong);
         }
         .icon-action:active { transform: scale(0.94); }
-        .icon-action.danger:hover {
-            background: rgba(217,112,112,0.15);
-            color: var(--error);
-            border-color: var(--error);
+        .icon-action.active {
+            background: var(--bg-elev);
+            color: var(--accent);
         }
+        .icon-action.danger:hover {
+            background: rgba(224,74,93,0.15);
+            color: var(--error);
+        }
+
 
         .popover {
             position: fixed;
@@ -232,7 +254,8 @@
 
         .toolbar input {
             flex: 1;
-            padding: 10px 14px;
+            padding: 6px 12px;
+            height: 32px;
             border: 1px solid var(--border);
             background: var(--bg-elev);
             color: var(--text);
@@ -245,20 +268,21 @@
         .toolbar input:focus { border-color: var(--border-strong); }
 
         .toolbar button {
-            padding: 10px 14px;
+            padding: 0 14px;
+            height: 32px;
             border: 1px solid var(--border);
             background: var(--bg-elev);
             color: var(--text-dim);
             border-radius: var(--radius-sm);
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 500;
             cursor: pointer;
             white-space: nowrap;
             transition: background 0.15s, color 0.15s, border-color 0.15s;
         }
         .toolbar button:hover { background: var(--bg-card); color: var(--text); border-color: var(--border-strong); }
-        .toolbar button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-        .toolbar button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; }
+        .toolbar button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+        .toolbar button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--accent-text); }
         .toolbar button:disabled { background: var(--bg-elev); color: var(--text-muted); cursor: not-allowed; }
 
         .progress {
@@ -361,6 +385,16 @@
             color: var(--text-muted);
         }
 
+        .page-credit {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 28px 16px;
+            text-align: right;
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 0.02em;
+        }
+
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -385,7 +419,7 @@
 
         .card.matched {
             border-color: var(--accent);
-            box-shadow: 0 0 0 1px var(--accent), 0 8px 24px rgba(217,119,87,0.18);
+            box-shadow: 0 0 0 1px var(--accent), 0 8px 24px rgba(255,221,136,0.18);
         }
 
         .card img {
@@ -396,19 +430,33 @@
             background: var(--bg-elev);
         }
 
-        .card-info { padding: 12px 14px 14px; }
+        .card-info { padding: 12px 14px 14px; position: relative; }
 
         .card-filename {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            right: 0;
+            padding: 26px 14px 10px;
+            background: linear-gradient(to top, rgba(0,0,0,0.78), rgba(0,0,0,0));
+            color: var(--text);
             font-size: 12px;
-            color: var(--text-muted);
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            margin-bottom: 8px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             gap: 8px;
+            opacity: 0;
+            transition: opacity 0.15s;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .card:hover .card-filename { opacity: 1; }
+        .filename-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+            flex: 1;
         }
 
         .card-tags {
@@ -416,6 +464,13 @@
             flex-wrap: wrap;
             gap: 5px;
         }
+        .card-info .card-tags {
+            flex-wrap: nowrap;
+            overflow: hidden;
+            -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent);
+            mask-image: linear-gradient(to right, black calc(100% - 24px), transparent);
+        }
+        .card-info .card-tags .tag { flex-shrink: 0; }
 
         .tag {
             background: var(--tag-bg);
@@ -436,17 +491,56 @@
             color: var(--work);
         }
         .tag.user {
-            background: rgba(217,119,87,0.16);
-            color: var(--accent);
+            background: var(--user-bg);
+            color: var(--user);
             font-weight: 600;
         }
-        .tag.user .tag-x {
-            margin-left: 6px;
-            opacity: 0.55;
+        .tag .tag-x {
+            display: inline-block;
+            margin-left: 0;
+            max-width: 0;
+            overflow: hidden;
+            opacity: 0;
             cursor: pointer;
             font-weight: 700;
+            white-space: nowrap;
+            transition: max-width 0.18s ease, margin-left 0.18s ease, opacity 0.15s ease;
         }
-        .tag.user .tag-x:hover { opacity: 1; color: var(--error); }
+        .tag:hover .tag-x {
+            max-width: 18px;
+            margin-left: 6px;
+            opacity: 0.65;
+        }
+        .tag .tag-x:hover { opacity: 1; color: var(--error); }
+        .tag-label.editing {
+            outline: 1px solid var(--accent);
+            outline-offset: 1px;
+            border-radius: 3px;
+            background: var(--bg);
+            color: var(--text);
+            cursor: text;
+            padding: 0 3px;
+        }
+        /* 드래그 앤 드롭 */
+        .modal-info .card-tags[data-drop-zone] {
+            min-height: 32px;
+            padding: 4px;
+            margin-left: -4px;
+            margin-right: -4px;
+            border-radius: var(--radius-sm);
+            transition: background 0.12s, outline 0.12s;
+            outline: 2px dashed transparent;
+        }
+        .modal-info .card-tags.drop-target {
+            background: var(--bg-elev);
+            outline-color: var(--accent);
+        }
+        .modal-info .tag[draggable="true"] {
+            cursor: grab;
+        }
+        .modal-info .tag[draggable="true"]:active {
+            cursor: grabbing;
+        }
 
         .tag-editor {
             margin: 12px 0 14px;
@@ -478,7 +572,7 @@
         .tag-editor-row button {
             padding: 8px 14px;
             background: var(--accent);
-            color: #fff;
+            color: var(--accent-text);
             border: none;
             border-radius: var(--radius-sm);
             cursor: pointer;
@@ -531,16 +625,16 @@
             transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
             padding: 0;
         }
-        .icon-btn:hover { background: var(--accent); border-color: var(--accent); }
+        .icon-btn:hover { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
         .icon-btn:active { transform: scale(0.92); }
-        .icon-btn.fav.active { background: var(--fav); border-color: var(--fav); color: #2a1f10; }
+        .icon-btn.fav.active { background: var(--fav); border-color: var(--fav); color: var(--accent-text); }
         .icon-btn.hide:hover { background: var(--error); border-color: var(--error); }
-        .icon-btn.show:hover { background: var(--success); border-color: var(--success); }
+        .icon-btn.show:hover { background: var(--success); border-color: var(--success); color: var(--accent-text); }
 
         .card.hidden-card { opacity: 0.6; filter: grayscale(0.5); }
         .card.hidden-card:hover { opacity: 0.95; filter: grayscale(0); }
         .card.favorited { border-color: var(--fav); box-shadow: 0 0 0 1px var(--fav); }
-        .card.favorited.matched { box-shadow: 0 0 0 1px var(--accent), 0 8px 24px rgba(217,119,87,0.18); border-color: var(--accent); }
+        .card.favorited.matched { box-shadow: 0 0 0 1px var(--accent), 0 8px 24px rgba(255,221,136,0.18); border-color: var(--accent); }
 
         .score-badge {
             font-size: 11px;
@@ -568,7 +662,7 @@
             -webkit-backdrop-filter: blur(8px);
         }
         .card:hover .copy-btn { opacity: 1; }
-        .copy-btn:hover { background: var(--accent); }
+        .copy-btn:hover { background: var(--accent); color: var(--accent-text); }
         .copy-btn:disabled { background: rgba(0,0,0,0.4); cursor: default; }
 
         .modal-overlay {
@@ -633,7 +727,7 @@
             width: 100%;
             padding: 11px 16px;
             background: var(--accent);
-            color: #fff;
+            color: var(--accent-text);
             border: none;
             border-radius: var(--radius-sm);
             cursor: pointer;
@@ -660,7 +754,7 @@
         }
         .modal-action-btn:hover { background: var(--bg-card); color: var(--text); border-color: var(--border-strong); }
         .modal-action-btn.active-fav { background: var(--fav-bg); color: var(--fav); border-color: var(--fav); }
-        .modal-action-btn.active-hide { background: rgba(217,112,112,0.15); color: var(--error); border-color: var(--error); }
+        .modal-action-btn.active-hide { background: rgba(224,74,93,0.15); color: var(--error); border-color: var(--error); }
 
         .modal-nav {
             position: absolute;
@@ -681,7 +775,7 @@
             backdrop-filter: blur(8px);
             transition: background 0.15s;
         }
-        .modal-nav:hover { background: var(--accent); }
+        .modal-nav:hover { background: var(--accent); color: var(--accent-text); }
         .modal-nav:disabled { opacity: 0.3; cursor: default; background: rgba(0,0,0,0.5); }
         .modal-nav.prev { left: 16px; }
         .modal-nav.next { right: 16px; }
@@ -716,11 +810,15 @@
             border-radius: var(--radius-pill);
             padding: 8px 8px 8px 18px;
             display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
             align-items: center;
-            gap: 10px;
+            gap: 8px 10px;
+            max-width: calc(100vw - 32px);
             z-index: 150;
             box-shadow: 0 12px 32px rgba(0,0,0,0.5);
         }
+        .bulk-bar button { white-space: nowrap; }
         .bulk-bar .bulk-count {
             color: var(--text);
             font-size: 13px;
@@ -739,7 +837,7 @@
         }
         .bulk-bar button:hover { background: var(--bg-card); color: var(--text); }
         .bulk-bar button.danger:hover { background: var(--error); color: #fff; border-color: var(--error); }
-        .bulk-bar button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .bulk-bar button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
         .bulk-bar button.primary:hover { background: var(--accent-hover); }
 
         .load-more {
@@ -773,16 +871,22 @@
             .modal-img { max-width: 100%; max-height: 55vh; }
             .modal-info { max-width: 100%; padding: 20px; }
         }
+
+        /* 세로가 더 긴 창 (portrait) — 이미지 위, 정보 아래로 stack */
+        @media (orientation: portrait) {
+            .modal-content { flex-direction: column; max-height: 95vh; max-width: 95vw; }
+            .modal-img { max-width: 100%; max-height: 55vh; }
+            .modal-info { max-width: 100%; padding: 20px; }
+        }
     </style>
 </head>
 <body>
 
 <header>
     <div class="header-inner">
-        <h1>MemeTracker</h1>
         <div class="search-box">
             <input type="text" id="searchInput" placeholder="검색어 입력" autofocus>
-            <button onclick="doSearch()">검색</button>
+            <button class="secondary" onclick="doSearch()">검색</button>
             <button onclick="loadRandom()" title="랜덤 5개">랜덤</button>
         </div>
         <div class="view-tabs" id="viewTabs">
@@ -791,9 +895,10 @@
             <button data-view="hidden" onclick="setView('hidden')">숨김 <span id="cntHid"></span></button>
         </div>
         <div class="header-actions">
-            <button class="icon-action" title="단축키" onclick="togglePopover('shortcuts')">⌨</button>
-            <button class="icon-action" title="정보 / 통계" onclick="togglePopover('info')">ℹ</button>
-            <button class="icon-action" title="서버 로그 열기" onclick="openLog()">📋</button>
+            <button class="icon-action" id="toolbarToggle" title="관리 도구 (폴더 인덱싱 등)" onclick="toggleToolbar()">⋯</button>
+            <button class="icon-action" title="단축키" onclick="togglePopoverMenu('shortcuts')">⌨</button>
+            <button class="icon-action" title="정보 / 통계" onclick="togglePopoverMenu('info')">ℹ</button>
+            <button class="icon-action" title="서버 로그 열기" onclick="openLog()">▤</button>
             <button class="icon-action danger" title="서버 재시작 (코드 변경 시에만 필요. UI 변경은 Ctrl+F5만으로 됨)" onclick="restartServer()">↻</button>
         </div>
     </div>
@@ -806,6 +911,7 @@
             <dt><kbd>Ctrl</kbd> + 클릭</dt><dd>다중 선택 (일괄 작업)</dd>
             <dt><kbd>Shift</kbd> + 클릭</dt><dd>다중 선택</dd>
             <dt><kbd>Enter</kbd></dt><dd>검색 / 폴더 인덱싱</dd>
+            <dt><kbd>R</kbd></dt><dd>랜덤 5개</dd>
             <dt><kbd>Ctrl</kbd> + <kbd>F5</kbd></dt><dd>강제 새로고침</dd>
         </dl>
     </div>
@@ -815,13 +921,14 @@
         <div id="infoPopoverBody">로딩 중...</div>
     </div>
 
-    <div class="toolbar">
+    <div class="toolbar" id="toolbar" style="display:none">
         <input type="text" id="folderInput" placeholder="이미지 폴더 경로">
         <button id="folderPickBtn" onclick="pickFolder()" title="폴더 선택 창 열기">폴더 고르기</button>
         <button id="indexBtn" class="primary" onclick="startIndex(false)" title="새로 추가된 이미지만 빠르게 분석 (캐릭터 인식)">새 이미지 추가</button>
         <button id="backfillBtn" onclick="startBackfill()" title="이미 추가된 이미지 중 캐릭터 인식이 안 된 것들을 분석">캐릭터 인식</button>
         <button id="aiBtn" onclick="startAIAnalysis()" title="AI로 한국어 태그/설명 생성">AI 분석</button>
         <button onclick="startRelocalize()" title="이름 사전을 다시 읽어 캐릭터 이름 갱신 (이미지 재분석 X)">이름 다시 적용</button>
+        <button onclick="startDedupeTags()" title="모든 이미지의 중복 태그 일괄 정리 (다리미×30 같은 경우)">중복 정리</button>
         <button onclick="toggleFolderPanel()">폴더 목록</button>
     </div>
 
@@ -840,6 +947,8 @@
     <button id="loadMore" class="load-more" style="display:none" onclick="loadMore()">더 보기</button>
     <div id="status" class="status status-bottom"></div>
 </main>
+
+<footer class="page-credit">Made by Vanillapapaya</footer>
 
 <div class="modal-overlay" id="modal" onclick="closeModal(event)">
     <div class="modal-counter" id="modalCounter" onclick="event.stopPropagation()"></div>
@@ -874,7 +983,7 @@ let currentQuery = '';
 const PAGE_SIZE = 40;
 
 let pollTimer = null;
-const isLocalAccess = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
+const isLocalAccess = {{ 'true' if is_local else 'false' }};
 const canUseClipboardAPI = window.isSecureContext && !!navigator.clipboard && !!window.ClipboardItem;
 
 let cardData = [];
@@ -982,6 +1091,19 @@ searchInput.addEventListener('keydown', (e) => {
 
 document.getElementById('folderInput').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) startIndex(false);
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'r' && e.key !== 'R') return;
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    if (e.isComposing || e.keyCode === 229) return;
+    const t = e.target;
+    if (!t) return;
+    const tag = t.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || t.isContentEditable) return;
+    if (document.getElementById('modal').classList.contains('active')) return;
+    e.preventDefault();
+    loadRandom();
 });
 
 async function doSearch() {
@@ -1120,9 +1242,8 @@ function createCard(item, showScore) {
         <img src="${item.image_url}" alt="${escapeHTML(item.filename)}" loading="lazy"
              onerror="this.style.display='none'">
         <div class="card-info">
-            <div class="card-filename">${escapeHTML(item.filename)} ${scoreHTML}</div>
-            ${(userHTML || charHTML || tagHTML) ? `<div class="card-tags">${userHTML}${charHTML}${tagHTML}</div>` : ''}
-            ${item.description ? `<div class="card-desc">${escapeHTML(item.description)}</div>` : ''}
+            <div class="card-filename"><span class="filename-text">${escapeHTML(item.filename)}</span>${scoreHTML}</div>
+            ${(userHTML || charHTML || tagHTML) ? `<div class="card-tags">${charHTML}${userHTML}${tagHTML}</div>` : ''}
         </div>
     `;
     return card;
@@ -1215,8 +1336,8 @@ function renderModalBody(item) {
     const charsEn = parseTags(item.wd_chars);
     const tags = parseTags(item.tags);
     const userHTML = renderUserTagChips(item.id, userTags);
-    const charHTML = charTags.map(t => `<span class="tag char">${escapeHTML(t)}</span>`).join('');
-    const tagHTML = tags.map(t => `<span class="tag">${escapeHTML(t)}</span>`).join('');
+    const charHTML = renderCharTagChips(item.id, charTags);
+    const tagHTML = renderAiTagChips(item.id, tags);
     const copyLabel = '클립보드에 복사';
 
     const favLabel = item.favorite ? '★ 즐겨찾기 해제' : '★ 즐겨찾기';
@@ -1231,16 +1352,21 @@ function renderModalBody(item) {
             <button class="modal-action-btn ${item.hidden ? 'active-hide' : ''}" onclick="modalToggleHidden(${item.id}, this)">${hideLabel}</button>
         </div>
         <button class="modal-action-btn" style="width:100%;margin-bottom:14px" onclick="findSimilar(${item.id})">≈ 비슷한 이미지 찾기</button>
+        <div class="tag-editor-label">캐릭터</div>
+        <div class="card-tags" id="charTagsBox" data-drop-zone="char" style="margin-bottom:10px"
+             ondragover="onTagDragOver(event)" ondragleave="onTagDragLeave(event)" ondrop="onTagDrop(event, 'char')">${charHTML}</div>
         <div class="tag-editor">
             <div class="tag-editor-label">내 태그</div>
-            <div class="card-tags" id="userTagsBox">${userHTML || '<span class="folder-empty" style="padding:0;font-size:12px">없음</span>'}</div>
+            <div class="card-tags" id="userTagsBox" data-drop-zone="user"
+                 ondragover="onTagDragOver(event)" ondragleave="onTagDragLeave(event)" ondrop="onTagDrop(event, 'user')">${userHTML || '<span class="folder-empty" style="padding:0;font-size:12px">없음</span>'}</div>
             <div class="tag-editor-row">
                 <input type="text" id="userTagInput" placeholder="태그 입력 후 Enter" maxlength="50">
                 <button onclick="addUserTagFromInput(${item.id})">추가</button>
             </div>
         </div>
-        ${charHTML ? `<div class="tag-editor-label">캐릭터</div><div class="card-tags" style="margin-bottom:10px">${charHTML}</div>` : ''}
-        ${tagHTML ? `<div class="tag-editor-label">AI 태그</div><div class="card-tags">${tagHTML}</div>` : ''}
+        <div class="tag-editor-label">AI 태그</div>
+        <div class="card-tags" id="aiTagsBox" data-drop-zone="ai"
+             ondragover="onTagDragOver(event)" ondragleave="onTagDragLeave(event)" ondrop="onTagDrop(event, 'ai')">${tagHTML || '<span class="folder-empty" style="padding:0;font-size:12px">없음</span>'}</div>
         ${item.description ? `<div class="card-desc">${escapeHTML(item.description)}</div>` : ''}
         ${charsEn.length ? `<div class="card-desc" style="margin-top:10px;font-family:ui-monospace,monospace;font-size:11px;color:var(--text-muted)">캐릭터 원본: ${escapeHTML(charsEn.join(', '))}</div>` : ''}
     `;
@@ -1434,7 +1560,7 @@ async function startBackfill() {
     }
 }
 
-async function togglePopover(name) {
+async function togglePopoverMenu(name) {
     const popover = document.getElementById(name + 'Popover');
     if (!popover) return;
     document.querySelectorAll('.popover').forEach(p => {
@@ -1446,7 +1572,7 @@ async function togglePopover(name) {
     } else {
         if (name === 'info') await refreshInfoPopover();
         // 버튼 바로 아래에 띄우기 (position: fixed 기준)
-        const btn = document.querySelector(`button.icon-action[onclick*="togglePopover('${name}')"]`);
+        const btn = document.querySelector(`button.icon-action[onclick*="togglePopoverMenu('${name}')"]`);
         if (btn) {
             const r = btn.getBoundingClientRect();
             popover.style.top = (r.bottom + 6) + 'px';
@@ -1559,6 +1685,26 @@ async function startAIAnalysis() {
     }
 }
 
+async function startDedupeTags() {
+    if (!confirm('모든 이미지의 중복 태그를 정리합니다. 진행할까요?')) return;
+    try {
+        const res = await fetch('/api/dedupe_tags', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+            alert('오류: ' + (data.error || res.statusText));
+            return;
+        }
+        alert(`중복 정리 완료\n${data.changed}장 정리됨 / 전체 ${data.checked}장 확인`);
+        if (currentMode === 'browse') {
+            browseOffset = 0;
+            grid.innerHTML = ''; cardData = [];
+            loadBrowse();
+        }
+    } catch (e) {
+        alert('실패: ' + e.message);
+    }
+}
+
 async function startRelocalize() {
     try {
         const res = await fetch('/api/relocalize', { method: 'POST' });
@@ -1603,7 +1749,200 @@ async function modalToggleFavorite(id, btn) {
 }
 
 function renderUserTagChips(imageId, tags) {
-    return tags.map(t => `<span class="tag user">${escapeHTML(t)}<span class="tag-x" onclick="removeUserTag(${imageId}, '${escapeAttr(t)}', this)" title="제거">×</span></span>`).join('');
+    return tags.map(t => `<span class="tag user" draggable="true" ondragstart="onTagDragStart(event, ${imageId}, 'user', '${escapeAttr(t)}')" ondblclick="startEditTag(this, ${imageId}, 'user_tags', '${escapeAttr(t)}')" title="더블클릭 편집 / 끌어다 놓으면 캐릭터 또는 AI 태그로"><span class="tag-label">${escapeHTML(t)}</span><span class="tag-x" onclick="removeTagFromField(${imageId}, 'user_tags', '${escapeAttr(t)}', this)" title="제거">×</span></span>`).join('');
+}
+
+function renderCharTagChips(imageId, tags) {
+    return tags.map(t => `<span class="tag char" draggable="true" ondragstart="onTagDragStart(event, ${imageId}, 'char', '${escapeAttr(t)}')" ondblclick="startEditTag(this, ${imageId}, 'wd_chars_ko', '${escapeAttr(t)}')" title="더블클릭 편집 / 끌어다 놓으면 내 태그 또는 AI 태그로"><span class="tag-label">${escapeHTML(t)}</span><span class="tag-x" onclick="removeTagFromField(${imageId}, 'wd_chars_ko', '${escapeAttr(t)}', this)" title="제거">×</span></span>`).join('');
+}
+
+function renderAiTagChips(imageId, tags) {
+    return tags.map(t => `<span class="tag" draggable="true" ondragstart="onTagDragStart(event, ${imageId}, 'ai', '${escapeAttr(t)}')" ondblclick="startEditTag(this, ${imageId}, 'tags', '${escapeAttr(t)}')" title="더블클릭 편집 / 끌어다 놓으면 내 태그 또는 캐릭터로"><span class="tag-label">${escapeHTML(t)}</span><span class="tag-x" onclick="removeTagFromField(${imageId}, 'tags', '${escapeAttr(t)}', this)" title="제거">×</span></span>`).join('');
+}
+
+async function removeTagFromField(imageId, field, tag, el) {
+    const item = cardData.find(d => d.id === imageId);
+    if (!item) return;
+    const current = parseTags(item[field] || '');
+    const next = current.filter(t => t !== tag);
+    try {
+        const res = await fetch(`/api/image/${imageId}/field_tags`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({field, tags: next}),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+
+        const sep = field === 'user_tags' ? ',' : ', ';
+        const itemIdx = cardData.findIndex(d => d.id === imageId);
+        if (itemIdx >= 0) cardData[itemIdx][field] = data.tags.join(sep);
+
+        if (modalIndex >= 0 && cardData[modalIndex] && cardData[modalIndex].id === imageId) {
+            renderModalBody(cardData[modalIndex]);
+        }
+        const userT = parseTags(cardData[itemIdx].user_tags || '');
+        const charT = parseTags(cardData[itemIdx].wd_chars_ko || '');
+        const aiT   = parseTags(cardData[itemIdx].tags || '');
+        _syncCardChipsAfterPromote(imageId, userT, charT, aiT);
+    } catch (e) {
+        alert('태그 제거 실패: ' + e.message);
+    }
+}
+
+function startEditTag(chipEl, imageId, field, oldTag) {
+    const label = chipEl.querySelector('.tag-label');
+    if (!label || label.isContentEditable) return;
+
+    const wasDraggable = chipEl.draggable;
+    chipEl.draggable = false;
+    label.contentEditable = 'true';
+    label.classList.add('editing');
+    label.focus();
+
+    const range = document.createRange();
+    range.selectNodeContents(label);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+    let done = false;
+    const finish = (commit) => {
+        if (done) return;
+        done = true;
+        label.contentEditable = 'false';
+        label.classList.remove('editing');
+        chipEl.draggable = wasDraggable;
+        label.onkeydown = null;
+        label.onblur = null;
+
+        const newTag = label.textContent.trim();
+        if (!commit) { label.textContent = oldTag; return; }
+        if (newTag === oldTag) return;
+        commitTagEdit(imageId, field, oldTag, newTag);
+    };
+
+    label.onkeydown = (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+        else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    };
+    label.onblur = () => finish(true);
+}
+
+async function commitTagEdit(imageId, field, oldTag, newTag) {
+    const item = cardData.find(d => d.id === imageId);
+    if (!item) return;
+    const current = parseTags(item[field] || '');
+    const idx = current.indexOf(oldTag);
+    if (idx < 0) { alert('태그를 찾을 수 없음 (다른 곳에서 이미 수정됐을 수 있음)'); return; }
+    if (!newTag) current.splice(idx, 1);
+    else current[idx] = newTag;
+
+    try {
+        const res = await fetch(`/api/image/${imageId}/field_tags`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({field, tags: current}),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+
+        const sep = field === 'user_tags' ? ',' : ', ';
+        const itemIdx = cardData.findIndex(d => d.id === imageId);
+        if (itemIdx >= 0) cardData[itemIdx][field] = data.tags.join(sep);
+
+        if (modalIndex >= 0 && cardData[modalIndex] && cardData[modalIndex].id === imageId) {
+            renderModalBody(cardData[modalIndex]);
+        }
+        // 카드 그리드 칩 동기화 (user/char/AI 모두 갱신)
+        const userT = parseTags(cardData[itemIdx].user_tags || '');
+        const charT = parseTags(cardData[itemIdx].wd_chars_ko || '');
+        const aiT   = parseTags(cardData[itemIdx].tags || '');
+        _syncCardChipsAfterPromote(imageId, userT, charT, aiT);
+    } catch (e) {
+        alert('편집 실패: ' + e.message);
+    }
+}
+
+function onTagDragStart(e, imageId, source, tag) {
+    e.dataTransfer.setData('application/json', JSON.stringify({imageId, source, tag}));
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function onTagDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    e.currentTarget.classList.add('drop-target');
+}
+
+function onTagDragLeave(e) {
+    e.currentTarget.classList.remove('drop-target');
+}
+
+function onTagDrop(e, target) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drop-target');
+    try {
+        const data = JSON.parse(e.dataTransfer.getData('application/json'));
+        if (data.source === target) return;
+        moveTag(data.imageId, data.tag, data.source, target);
+    } catch (err) { console.error(err); }
+}
+
+async function moveTag(imageId, tag, source, target) {
+    if (source === target) return;
+    try {
+        const res = await fetch(`/api/image/${imageId}/move_tag`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({tag, source, target}),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+
+        const idx = cardData.findIndex(d => d.id === imageId);
+        if (idx >= 0) {
+            cardData[idx].user_tags = data.user_tags.join(',');
+            cardData[idx].wd_chars_ko = data.wd_chars_ko.join(', ');
+            cardData[idx].tags = data.tags.join(', ');
+        }
+        if (modalIndex >= 0 && cardData[modalIndex] && cardData[modalIndex].id === imageId) {
+            renderModalBody(cardData[modalIndex]);
+        }
+        _syncCardChipsAfterPromote(imageId, data.user_tags, data.wd_chars_ko, data.tags);
+    } catch (e) {
+        alert('실패: ' + e.message);
+    }
+}
+
+function _syncCardChipsAfterPromote(id, userTags, charTags, aiTags) {
+    const card = grid.querySelector(`.card[data-id="${id}"]`);
+    if (!card) return;
+    const cardInfo = card.querySelector('.card-info');
+    if (!cardInfo) return;
+
+    let tagsEl = cardInfo.querySelector('.card-tags');
+    // aiTags 인자가 있으면 갱신, 없으면 기존 유지
+    const genericHTML = aiTags !== undefined
+        ? aiTags.slice(0, 3).map(t => `<span class="tag">${escapeHTML(t)}</span>`).join('')
+        : (tagsEl
+            ? Array.from(tagsEl.querySelectorAll('.tag:not(.user):not(.char):not(.work)'))
+                  .map(el => el.outerHTML).join('')
+            : '');
+    const userHTML = userTags.slice(0, 4).map(t => `<span class="tag user">${escapeHTML(t)}</span>`).join('');
+    const charHTML = charTags.slice(0, 3).map(t => `<span class="tag char">${escapeHTML(t)}</span>`).join('');
+    const combined = charHTML + userHTML + genericHTML;
+
+    if (combined) {
+        if (!tagsEl) {
+            tagsEl = document.createElement('div');
+            tagsEl.className = 'card-tags';
+            cardInfo.appendChild(tagsEl);
+        }
+        tagsEl.innerHTML = combined;
+    } else if (tagsEl) {
+        tagsEl.remove();
+    }
 }
 
 async function saveUserTags(id, tags) {
@@ -1695,15 +2034,9 @@ async function removeUserTag(id, tag, el) {
 function parseTagsFromBox() {
     const box = document.getElementById('userTagsBox');
     if (!box) return [];
-    return Array.from(box.querySelectorAll('.tag.user')).map(span => {
-        const x = span.querySelector('.tag-x');
-        if (x) {
-            const clone = span.cloneNode(true);
-            clone.querySelector('.tag-x').remove();
-            return clone.textContent.trim();
-        }
-        return span.textContent.trim();
-    });
+    return Array.from(box.querySelectorAll('.tag.user .tag-label'))
+        .map(el => el.textContent.trim())
+        .filter(Boolean);
 }
 
 async function modalToggleHidden(id, btn) {
@@ -1818,6 +2151,23 @@ function useFolder(path) {
     document.getElementById('folderInput').value = path;
     document.getElementById('folderInput').focus();
 }
+
+function toggleToolbar() {
+    const t = document.getElementById('toolbar');
+    const willShow = t.style.display === 'none';
+    t.style.display = willShow ? '' : 'none';
+    document.getElementById('toolbarToggle').classList.toggle('active', willShow);
+    localStorage.setItem('yoink.toolbar', willShow ? 'show' : 'hide');
+}
+
+(function initToolbarVisibility() {
+    if (localStorage.getItem('yoink.toolbar') === 'show') {
+        const t = document.getElementById('toolbar');
+        const btn = document.getElementById('toolbarToggle');
+        if (t) t.style.display = '';
+        if (btn) btn.classList.add('active');
+    }
+})();
 
 function toggleFolderPanel() {
     const p = document.getElementById('folderPanel');

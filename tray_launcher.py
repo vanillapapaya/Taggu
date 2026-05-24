@@ -1,4 +1,4 @@
-"""시스템 트레이 아이콘으로 MemeTracker 서버 관리.
+"""시스템 트레이 아이콘으로 Yoink 서버 관리.
 
 흐름:
   1. python app.py를 subprocess로 실행 (콘솔 창 없음)
@@ -9,7 +9,7 @@
 
 서버 stdout/stderr는 server_log.txt에 누적 기록 (디버깅용).
 
-VBS launcher (MemeTracker.vbs)에서 pythonw.exe로 호출하면 콘솔 창이 안 뜸.
+VBS launcher (Yoink.vbs)에서 pythonw.exe로 호출하면 콘솔 창이 안 뜸.
 """
 
 import socket
@@ -189,9 +189,9 @@ def main():
     threading.Thread(target=wait_for_port_then_open, daemon=True).start()
 
     icon = pystray.Icon(
-        "memetracker",
+        "yoink",
         make_icon_image(),
-        "MemeTracker",
+        "Yoink",
         menu=pystray.Menu(
             pystray.MenuItem("브라우저 열기", open_browser, default=True),
             pystray.MenuItem("서버 재시작", restart_server),

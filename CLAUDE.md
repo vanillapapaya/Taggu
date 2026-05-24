@@ -1,4 +1,4 @@
-# MemeTracker v2
+# Yoink v2
 
 로컬 이미지 자동 태깅 + 검색 시스템. GPU 서버에서 VLM 태깅 + CLIP 임베딩, 브라우저로 검색.
 
