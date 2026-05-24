@@ -190,6 +190,7 @@
             background: rgba(224,74,93,0.15);
             color: var(--error);
         }
+        body:not(.dev-mode) .dev-only { display: none !important; }
 
 
         .popover {
@@ -511,6 +512,24 @@
         }
         .settings-foot button.primary:hover { background: var(--accent-hover); }
         .settings-foot button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .settings-dev-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 16px;
+            padding: 10px 12px;
+            background: var(--bg-elev);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            color: var(--text-dim);
+            cursor: pointer;
+        }
+        .settings-dev-toggle input { accent-color: var(--accent); }
+        .settings-dev-toggle .settings-dev-note {
+            color: var(--text-muted);
+            font-size: 11px;
+        }
         .settings-status {
             font-size: 12px;
             margin-top: 10px;
@@ -1046,8 +1065,8 @@
             <button class="icon-action" title="AI 분석 설정 (모델/API 키)" onclick="openSettings()">⚙</button>
             <button class="icon-action" title="단축키" onclick="togglePopoverMenu('shortcuts')">⌨</button>
             <button class="icon-action" title="정보 / 통계" onclick="togglePopoverMenu('info')">ℹ</button>
-            <button class="icon-action" title="서버 로그 열기" onclick="openLog()">▤</button>
-            <button class="icon-action danger" title="서버 재시작 (코드 변경 시에만 필요. UI 변경은 Ctrl+F5만으로 됨)" onclick="restartServer()">↻</button>
+            <button class="icon-action dev-only" title="서버 로그 열기" onclick="openLog()">▤</button>
+            <button class="icon-action danger dev-only" title="서버 재시작 (코드 변경 시에만 필요. UI 변경은 Ctrl+F5만으로 됨)" onclick="restartServer()">↻</button>
         </div>
     </div>
 
@@ -1850,6 +1869,12 @@ function renderSettings(data) {
             <div class="settings-note">aistudio.google.com/apikey 에서 발급.</div>
         </div>
 
+        <label class="settings-dev-toggle">
+            <input type="checkbox" id="set-dev-mode" ${document.body.classList.contains('dev-mode') ? 'checked' : ''} onchange="toggleDevMode(this.checked)">
+            <span>개발자 모드</span>
+            <span class="settings-dev-note">— 헤더에 서버 로그(▤) / 재시작(↻) 아이콘 표시</span>
+        </label>
+
         <div class="settings-status" id="settingsStatus"></div>
 
         <div class="settings-foot">
@@ -2528,6 +2553,17 @@ function toggleToolbar() {
         if (btn) btn.classList.add('active');
     }
 })();
+
+(function initDevMode() {
+    if (localStorage.getItem('yoink.devMode') === 'true') {
+        document.body.classList.add('dev-mode');
+    }
+})();
+
+function toggleDevMode(on) {
+    document.body.classList.toggle('dev-mode', on);
+    localStorage.setItem('yoink.devMode', on ? 'true' : 'false');
+}
 
 function toggleFolderPanel() {
     const p = document.getElementById('folderPanel');
