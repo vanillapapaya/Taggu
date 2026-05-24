@@ -386,6 +386,96 @@
             color: var(--text-muted);
         }
 
+        .guide-modal {
+            flex-direction: column;
+            max-width: 480px;
+            width: 100%;
+            max-height: 86vh;
+        }
+        .guide-body {
+            padding: 40px 36px 28px;
+            text-align: center;
+            min-height: 360px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            overflow-y: auto;
+        }
+        .guide-emoji {
+            font-size: 64px;
+            line-height: 1;
+            margin-bottom: 24px;
+        }
+        .guide-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 14px;
+            letter-spacing: -0.01em;
+        }
+        .guide-text {
+            font-size: 14px;
+            color: var(--text-dim);
+            line-height: 1.7;
+            max-width: 380px;
+            margin: 0 auto;
+        }
+        .guide-text strong {
+            color: var(--accent);
+            font-weight: 600;
+        }
+        .guide-text .hilight {
+            background: rgba(255,221,136,0.16);
+            color: var(--text);
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        .guide-foot {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px 18px;
+            border-top: 1px solid var(--border);
+            gap: 12px;
+        }
+        .guide-foot button {
+            padding: 0 18px;
+            height: 36px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--bg-elev);
+            color: var(--text-dim);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.15s, color 0.15s;
+        }
+        .guide-foot button:hover { background: var(--bg-card); color: var(--text); }
+        .guide-foot button.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--accent-text);
+        }
+        .guide-foot button.primary:hover { background: var(--accent-hover); }
+        .guide-foot button:disabled { opacity: 0.35; cursor: not-allowed; background: var(--bg-elev); color: var(--text-dim); }
+        .guide-dots {
+            display: flex;
+            gap: 6px;
+        }
+        .guide-dots .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--border);
+            transition: background 0.15s, transform 0.15s;
+        }
+        .guide-dots .dot.active {
+            background: var(--accent);
+            transform: scale(1.3);
+        }
+
         .settings-modal {
             flex-direction: column;
             max-width: 560px;
@@ -1063,6 +1153,7 @@
         <div class="header-actions">
             <button class="icon-action" id="toolbarToggle" title="관리 도구 (폴더 인덱싱 등)" onclick="toggleToolbar()">⋯</button>
             <button class="icon-action" title="AI 분석 설정 (모델/API 키)" onclick="openSettings()">⚙</button>
+            <button class="icon-action" title="처음 사용 안내" onclick="openGuide()">❓</button>
             <button class="icon-action" title="단축키" onclick="togglePopoverMenu('shortcuts')">⌨</button>
             <button class="icon-action" title="정보 / 통계" onclick="togglePopoverMenu('info')">ℹ</button>
             <button class="icon-action dev-only" title="서버 로그 열기" onclick="openLog()">▤</button>
@@ -1124,6 +1215,17 @@
     <div class="modal-content" onclick="event.stopPropagation()">
         <img class="modal-img" id="modalImg" src="" alt="">
         <div class="modal-info" id="modalInfo"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="guideModal" onclick="closeGuide(event)">
+    <div class="modal-content guide-modal" onclick="event.stopPropagation()">
+        <div class="guide-body" id="guideBody"></div>
+        <div class="guide-foot">
+            <button id="guidePrevBtn" onclick="guidePrev()">← 이전</button>
+            <span class="guide-dots" id="guideDots"></span>
+            <button id="guideNextBtn" class="primary" onclick="guideNext()">다음 →</button>
+        </div>
     </div>
 </div>
 
@@ -1755,6 +1857,103 @@ async function togglePopoverMenu(name) {
         popover.style.display = 'block';
     }
 }
+
+// ───────────────────── 인앱 가이드 ─────────────────────
+
+const GUIDE_STEPS = [
+    {
+        emoji: '👋',
+        title: 'Yoink에 오신 걸 환영해요!',
+        html: '컴퓨터에 모아둔 <strong>사진과 짤들</strong>을 자동으로 정리해주는 도구예요.<br><br>몇 가지만 알면 바로 쓸 수 있어요. 같이 볼까요?',
+    },
+    {
+        emoji: '📂',
+        title: '1단계 — 사진 폴더 알려주기',
+        html: '위쪽의 <span class="hilight">⋯</span> 버튼을 누르면 도구창이 나와요.<br><br>거기에 사진이 들어있는 <strong>폴더 경로</strong>를 적고 <span class="hilight">[새 이미지 추가]</span>를 누르세요.<br><br>예) <code style="font-size:12px;color:var(--text-muted)">D:\\Download\\그림</code>',
+    },
+    {
+        emoji: '⏳',
+        title: '2단계 — Yoink가 사진을 살펴봐요',
+        html: '사진을 한 장씩 보면서 <strong>어떤 캐릭터인지</strong>, <strong>어떤 분위기인지</strong> 알아내요.<br><br>좀 기다리면 돼요. 100장이면 1~2분 정도.<br><br>한 번만 하면 다음부턴 빨라요!',
+    },
+    {
+        emoji: '🔍',
+        title: '3단계 — 한국어로 검색해요',
+        html: '위쪽 검색창에 그냥 한국어로 적으면 돼요.<br><br>"<span class="hilight">웃는 고양이</span>", "<span class="hilight">리제로 렘</span>", "<span class="hilight">놀란 표정</span>" 처럼요.<br><br>심심하면 <span class="hilight">R</span> 키를 눌러 랜덤 5장 뽑기!',
+    },
+    {
+        emoji: '⭐',
+        title: '4단계 — 좋아하는 건 별표!',
+        html: '사진 위에 마우스를 올리면 <span class="hilight">★</span> (즐겨찾기), <span class="hilight">✕</span> (숨기기) 버튼이 나타나요.<br><br>마음에 드는 사진은 ★ 눌러두면 나중에 [★] 탭에서 모아볼 수 있어요.',
+    },
+    {
+        emoji: '🤖',
+        title: '5단계 — AI한테 더 자세히 분석시키기',
+        html: '<span class="hilight">⚙</span> 버튼에서 어떤 AI를 쓸지 고를 수 있어요.<br><br>그래픽카드(GPU)가 있으면 <strong>로컬</strong>, 없으면 <strong>API 모드</strong>(키 필요).<br><br><span style="color:var(--text-muted);font-size:13px">키가 없어도 기본 검색은 다 돼요!</span>',
+    },
+    {
+        emoji: '🎉',
+        title: '준비 끝!',
+        html: '이게 전부예요. 더 자세한 단축키는 위의 <span class="hilight">⌨</span> 버튼에서 볼 수 있어요.<br><br>도움이 필요하면 언제든 <span class="hilight">❓</span> 버튼을 누르세요.<br><br>즐겁게 써주세요 :)',
+    },
+];
+
+let guideIndex = 0;
+
+function openGuide() {
+    guideIndex = 0;
+    renderGuide();
+    document.getElementById('guideModal').classList.add('active');
+}
+
+function closeGuide(e) {
+    if (!e || e.target === document.getElementById('guideModal')) {
+        document.getElementById('guideModal').classList.remove('active');
+        localStorage.setItem('yoink.guideSeen', 'true');
+    }
+}
+
+function renderGuide() {
+    const step = GUIDE_STEPS[guideIndex];
+    document.getElementById('guideBody').innerHTML = `
+        <div class="guide-emoji">${step.emoji}</div>
+        <div class="guide-title">${step.title}</div>
+        <div class="guide-text">${step.html}</div>
+    `;
+    document.getElementById('guideDots').innerHTML =
+        GUIDE_STEPS.map((_, i) => `<span class="dot${i === guideIndex ? ' active' : ''}"></span>`).join('');
+    document.getElementById('guidePrevBtn').disabled = guideIndex === 0;
+    const nextBtn = document.getElementById('guideNextBtn');
+    const isLast = guideIndex === GUIDE_STEPS.length - 1;
+    nextBtn.textContent = isLast ? '시작하기!' : '다음 →';
+}
+
+function guideNext() {
+    if (guideIndex < GUIDE_STEPS.length - 1) {
+        guideIndex++;
+        renderGuide();
+    } else {
+        closeGuide();
+    }
+}
+
+function guidePrev() {
+    if (guideIndex > 0) {
+        guideIndex--;
+        renderGuide();
+    }
+}
+
+(function autoShowGuideFirstTime() {
+    if (localStorage.getItem('yoink.guideSeen') !== 'true') {
+        // 페이지 로드 직후 가이드 자동 표시 (DOM 준비 후 약간 지연)
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(openGuide, 400);
+        });
+    }
+})();
+
+// ───────────────────── 설정 모달 ─────────────────────
 
 let settingsCatalog = null;
 
