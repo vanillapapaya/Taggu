@@ -185,19 +185,37 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         return vlm_state["provider"]
 
     def invalidate_vlm_provider():
-        # GPU 메모리 회수 위해 명시적 해제
+        """GPU 모델 / API client 해제. 설정 변경 또는 모드 전환 시 호출.
+
+        주의: 인덱싱 중에는 backfill_vlm이 로컬 변수로 provider를 들고 있어서
+        실제 해제는 인덱싱 완료 후 GC 시점에 일어남. 이 함수는 vlm_state만 비움.
+        """
         old = vlm_state["provider"]
         vlm_state["provider"] = None
-        if old is not None and hasattr(old, "_model") and old._model is not None:
+        if old is None:
+            return
+
+        # GPU 텐서를 CPU로 옮긴 뒤 None 할당 — 빠른 해제
+        if hasattr(old, "_model") and old._model is not None:
             try:
-                del old._model
-                del old._processor
-                import gc
-                gc.collect()
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
+                old._model.cpu()
             except Exception:
                 pass
+            old._model = None
+        if hasattr(old, "_processor"):
+            old._processor = None
+        if hasattr(old, "_client"):
+            old._client = None
+
+        try:
+            import gc
+            del old
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+        except Exception:
+            traceback.print_exc()
 
     def _row_to_item(row, **extras) -> dict:
         """이미지 row → 클라이언트용 dict. 4개 검색/브라우즈 엔드포인트가 공유."""
@@ -852,7 +870,15 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
 
     @app.post("/api/settings")
     async def save_settings_endpoint(req: SettingsRequest):
-        """설정 저장 + 즉시 적용. API 키 빈 값이면 기존 키 유지."""
+        """설정 저장 + 즉시 적용. API 키 빈 값이면 기존 키 유지.
+
+        인덱싱/백필이 돌고 있으면 거부 — 진행 중 모델 교체는 위험.
+        """
+        if index_lock.locked():
+            return JSONResponse(
+                {"error": "분석 작업이 진행 중입니다. 끝난 뒤 설정을 변경하세요"},
+                status_code=409,
+            )
         try:
             new = _merge_settings(vlm_state["settings"], req.settings)
             providers.make_provider(new)  # 유효성 검증 (생성 가능 여부만)

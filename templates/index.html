@@ -191,6 +191,52 @@
         }
         body:not(.dev-mode) .dev-only { display: none !important; }
 
+        .icon-action.error-badge {
+            color: var(--error);
+            font-weight: 700;
+            position: relative;
+        }
+        .icon-action.error-badge:hover {
+            background: rgba(224,74,93,0.15);
+            color: var(--error);
+        }
+        .icon-action.error-badge[data-count]::after {
+            content: attr(data-count);
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: var(--error);
+            color: #fff;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 0 4px;
+            border-radius: 8px;
+            line-height: 1.4;
+            min-width: 12px;
+            text-align: center;
+        }
+
+        .error-row {
+            padding: 8px 0;
+            border-top: 1px solid var(--border);
+        }
+        .error-row:first-child { border-top: none; }
+        .error-row .err-time {
+            color: var(--text-muted);
+            font-size: 10px;
+            font-family: ui-monospace, monospace;
+        }
+        .error-row .err-msg {
+            color: var(--text);
+            margin-top: 2px;
+            word-break: break-word;
+        }
+        .error-row .err-ctx {
+            color: var(--text-muted);
+            font-size: 11px;
+            margin-top: 2px;
+        }
+
 
         .popover {
             position: fixed;
@@ -400,16 +446,11 @@
             justify-content: center;
             overflow-y: auto;
         }
-        .guide-emoji {
-            font-size: 64px;
-            line-height: 1;
-            margin-bottom: 24px;
-        }
         .guide-title {
-            font-size: 22px;
+            font-size: 24px;
             font-weight: 700;
             color: var(--text);
-            margin-bottom: 14px;
+            margin-bottom: 18px;
             letter-spacing: -0.01em;
         }
         .guide-text {
@@ -1153,6 +1194,7 @@
             <button class="icon-action" id="toolbarToggle" title="관리 도구 (폴더 인덱싱 등)" onclick="toggleToolbar()">⋯</button>
             <button class="icon-action" title="AI 분석 설정 (모델/API 키)" onclick="openSettings()">⚙</button>
             <button class="icon-action" title="처음 사용 안내" onclick="openGuide()">?</button>
+            <button class="icon-action error-badge" id="errorBadge" title="최근 에러" onclick="togglePopoverMenu('errors')" style="display:none">!</button>
             <button class="icon-action" title="단축키" onclick="togglePopoverMenu('shortcuts')">⌨</button>
             <button class="icon-action" title="정보 / 통계" onclick="togglePopoverMenu('info')">ℹ</button>
             <button class="icon-action dev-only" title="서버 로그 열기" onclick="openLog()">▤</button>
@@ -1171,6 +1213,14 @@
             <dt><kbd>R</kbd></dt><dd>랜덤 5개</dd>
             <dt><kbd>Ctrl</kbd> + <kbd>F5</kbd></dt><dd>강제 새로고침</dd>
         </dl>
+    </div>
+
+    <div class="popover" id="errorsPopover" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <h4 style="margin:0">최근 에러</h4>
+            <button onclick="clearErrors()" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);padding:3px 10px;border-radius:var(--radius-sm);font-size:11px;cursor:pointer;font-family:inherit">비우기</button>
+        </div>
+        <div id="errorsPopoverBody" style="max-height:320px;overflow-y:auto;font-size:12px;line-height:1.5"></div>
     </div>
 
     <div class="popover" id="infoPopover" style="display:none">
@@ -1857,36 +1907,105 @@ async function togglePopoverMenu(name) {
     }
 }
 
+// ───────────────────── 에러 로깅 ─────────────────────
+
+const errorLog = [];  // 최근 20개만 유지
+const ERROR_MAX = 20;
+
+function logError(msg, context) {
+    errorLog.unshift({
+        time: new Date(),
+        msg: String(msg || '(에러 메시지 없음)'),
+        ctx: context || '',
+    });
+    if (errorLog.length > ERROR_MAX) errorLog.length = ERROR_MAX;
+    updateErrorBadge();
+    renderErrorsPopover();
+}
+
+function updateErrorBadge() {
+    const badge = document.getElementById('errorBadge');
+    if (!badge) return;
+    if (errorLog.length === 0) {
+        badge.style.display = 'none';
+        badge.removeAttribute('data-count');
+    } else {
+        badge.style.display = '';
+        badge.setAttribute('data-count', errorLog.length > 99 ? '99+' : String(errorLog.length));
+    }
+}
+
+function renderErrorsPopover() {
+    const body = document.getElementById('errorsPopoverBody');
+    if (!body) return;
+    if (errorLog.length === 0) {
+        body.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px 0">에러 없음</div>';
+        return;
+    }
+    body.innerHTML = errorLog.map(e => {
+        const t = e.time;
+        const hh = String(t.getHours()).padStart(2, '0');
+        const mm = String(t.getMinutes()).padStart(2, '0');
+        const ss = String(t.getSeconds()).padStart(2, '0');
+        return `<div class="error-row">
+            <div class="err-time">${hh}:${mm}:${ss}</div>
+            <div class="err-msg">${escapeHTML(e.msg)}</div>
+            ${e.ctx ? `<div class="err-ctx">${escapeHTML(e.ctx)}</div>` : ''}
+        </div>`;
+    }).join('');
+}
+
+function clearErrors() {
+    errorLog.length = 0;
+    updateErrorBadge();
+    renderErrorsPopover();
+}
+
+// 처리되지 않은 JS 에러 / Promise rejection 자동 캐치
+window.addEventListener('error', (e) => {
+    logError(e.message || 'Script error', `${e.filename || ''}:${e.lineno || ''}`);
+});
+window.addEventListener('unhandledrejection', (e) => {
+    const reason = e.reason && (e.reason.message || e.reason.toString()) || 'Promise rejected';
+    logError(reason, 'unhandledrejection');
+});
+
+// alert() 호출 자동 후킹 — 메시지에 "오류"/"실패"/"에러" 포함되면 popover에도 기록.
+// 기존 alert() 호출들을 일일이 logError로 바꿀 필요 없음.
+(function hookAlertForErrorLog() {
+    const orig = window.alert;
+    window.alert = function(msg) {
+        if (typeof msg === 'string' && /(오류|실패|에러|error)/i.test(msg)) {
+            logError(msg);
+        }
+        return orig.call(window, msg);
+    };
+})();
+
 // ───────────────────── 인앱 가이드 ─────────────────────
 
 const GUIDE_STEPS = [
     {
-        emoji: '👋',
-        title: 'Yoink에 오신 걸 환영해요!',
+        title: 'Yoink에 오신 걸 환영합니다',
         html: '컴퓨터에 모아둔 <strong>사진과 짤들</strong>을 자동으로 정리해주는 도구예요.<br><br>몇 가지만 알면 바로 쓸 수 있어요. 같이 볼까요?',
     },
     {
-        emoji: '📂',
         title: '1단계 — 사진 폴더 알려주기',
         html: '위쪽의 <span class="hilight">⋯</span> 버튼을 누르면 도구창이 나와요.<br><br>거기에 사진이 들어있는 <strong>폴더 경로</strong>를 적고 <span class="hilight">[새 이미지 추가]</span>를 누르세요.<br><br>예) <code style="font-size:12px;color:var(--text-muted)">D:\\Download\\그림</code>',
     },
     {
-        emoji: '⏳',
         title: '2단계 — Yoink가 사진을 살펴봐요',
-        html: '사진을 한 장씩 보면서 <strong>어떤 캐릭터인지</strong>, <strong>어떤 분위기인지</strong> 알아내요.<br><br>좀 기다리면 돼요. 100장이면 1~2분 정도.<br><br>한 번만 하면 다음부턴 빨라요!',
+        html: '사진을 한 장씩 보면서 <strong>어떤 캐릭터인지</strong>, <strong>어떤 분위기인지</strong> 알아내요.<br><br>좀 기다리면 돼요. 100장이면 1~2분 정도.<br><br>한 번만 하면 다음부턴 빨라요.',
     },
     {
-        emoji: '🔍',
         title: '3단계 — 한국어로 검색해요',
-        html: '위쪽 검색창에 그냥 한국어로 적으면 돼요.<br><br>"<span class="hilight">웃는 고양이</span>", "<span class="hilight">리제로 렘</span>", "<span class="hilight">놀란 표정</span>" 처럼요.<br><br>심심하면 <span class="hilight">R</span> 키를 눌러 랜덤 5장 뽑기!',
+        html: '위쪽 검색창에 그냥 한국어로 적으면 돼요.<br><br>"<span class="hilight">웃는 고양이</span>", "<span class="hilight">리제로 렘</span>", "<span class="hilight">놀란 표정</span>" 처럼요.<br><br>심심하면 <span class="hilight">R</span> 키를 눌러 랜덤 5장 뽑기.',
     },
     {
-        emoji: '⭐',
-        title: '4단계 — 좋아하는 건 별표!',
+        title: '4단계 — 좋아하는 건 별표',
         html: '사진 위에 마우스를 올리면 <span class="hilight">★</span> (즐겨찾기), <span class="hilight">✕</span> (숨기기) 버튼이 나타나요.<br><br>마음에 드는 사진은 ★ 눌러두면 나중에 [★] 탭에서 모아볼 수 있어요.',
     },
     {
-        emoji: '🏷️',
         title: '5단계 — 태그가 뭐예요?',
         html: '사진을 누르면 큰 창이 떠요. 거기에 단어들이 <strong>3가지 색</strong>으로 붙어있어요:<br><br>' +
               '<span class="tag char" style="font-size:11px">분홍 = 캐릭터</span>  ' +
@@ -1895,43 +2014,38 @@ const GUIDE_STEPS = [
               '분홍은 누군지 알아낸 것, 보라는 내가 직접 단 것, 회색은 AI가 만든 것이에요.',
     },
     {
-        emoji: '✏️',
         title: '6단계 — 태그 다루기',
         html: '<strong>잘못된 태그를 옮기고 싶을 때:</strong><br>그 단어를 <span class="hilight">끌어다</span> 다른 색 자리에 놓으면 옮겨져요.<br><br>' +
-              '<strong>글자를 고치고 싶을 때:</strong> 단어를 <span class="hilight">더블클릭</span>!<br>' +
+              '<strong>글자를 고치고 싶을 때:</strong> 단어를 <span class="hilight">더블클릭</span>.<br>' +
               '<strong>지우고 싶을 때:</strong> 단어에 마우스 올리면 보이는 <span class="hilight">×</span>를 누르세요.<br><br>' +
               '<span style="color:var(--text-muted);font-size:13px">새 태그는 아래 입력칸에 적고 Enter</span>',
     },
     {
-        emoji: '🤖',
         title: '7단계 — AI 종류 고르기',
         html: '<span class="hilight">⚙</span> 버튼에서 4가지 중 하나를 골라요:<br><br>' +
-              '🖥️ <strong>로컬 (GPU 있으면)</strong> — 무료<br>' +
-              '🌐 <strong>OpenAI / Claude</strong> — 사진 1장당 약 ₩4<br>' +
-              '✨ <strong>Gemini Flash</strong> — 거의 무료에 빠름<br><br>' +
-              '<span style="color:var(--text-muted);font-size:13px">잘 모르겠으면 Gemini로! API 키는 무료로 받을 수 있어요.</span>',
+              '<strong>로컬 (GPU 있으면)</strong> — 무료<br>' +
+              '<strong>OpenAI / Claude</strong> — 사진 1장당 약 ₩4<br>' +
+              '<strong>Gemini Flash</strong> — 거의 무료에 빠름<br><br>' +
+              '<span style="color:var(--text-muted);font-size:13px">잘 모르겠으면 Gemini로. API 키는 무료로 받을 수 있어요.</span>',
     },
     {
-        emoji: '📥',
         title: '잠깐 — 로컬 모드는 처음에…',
         html: '로컬 모드를 처음 쓰면 <strong>AI 모델을 인터넷에서 받아와요</strong>.<br><br>' +
               '· 7B 모델: <strong>~15GB</strong> (인터넷 속도에 따라 10~30분)<br>' +
               '· 캐릭터 인식: ~400MB (1~2분)<br>' +
               '· CLIP 검색: ~600MB (1~2분)<br><br>' +
-              '<strong>한 번만</strong> 받아두면 다음부턴 인터넷 없이도 동작!<br>' +
-              '<span style="color:var(--text-muted);font-size:13px">진행률 막대가 멈춰있어 보여도 다운로드 중일 수 있어요. 처음만 인내심!</span>',
+              '<strong>한 번만</strong> 받아두면 다음부턴 인터넷 없이도 동작.<br>' +
+              '<span style="color:var(--text-muted);font-size:13px">진행률 막대가 멈춰있어 보여도 다운로드 중일 수 있어요. 처음만 인내심.</span>',
     },
     {
-        emoji: '💰',
         title: '8단계 — 키 얻고 테스트하기',
         html: '⚙ 모달에서 안내 링크를 누르면 키 받는 곳으로 가요.<br><br>' +
               '<strong>aistudio.google.com</strong> (Gemini) → 로그인 → "Create API key" → 복사<br><br>' +
-              '키를 붙여넣고 <span class="hilight">[테스트]</span> 누르면 진짜로 잘 되는지 확인해요.<br>초록색 ✓ 나오면 <span class="hilight">[저장]</span>!',
+              '키를 붙여넣고 <span class="hilight">[테스트]</span> 누르면 진짜로 잘 되는지 확인해요.<br>초록색 체크 나오면 <span class="hilight">[저장]</span>.',
     },
     {
-        emoji: '🎉',
-        title: '준비 끝!',
-        html: '이게 전부예요. 더 자세한 단축키는 위의 <span class="hilight">⌨</span> 버튼에서 볼 수 있어요.<br><br>도움이 필요하면 언제든 <span class="hilight">?</span> 버튼을 누르세요.<br><br>즐겁게 써주세요 :)',
+        title: '준비 끝',
+        html: '이게 전부예요. 더 자세한 단축키는 위의 <span class="hilight">⌨</span> 버튼에서 볼 수 있어요.<br><br>도움이 필요하면 언제든 <span class="hilight">?</span> 버튼을 누르세요.',
     },
 ];
 
@@ -1953,7 +2067,6 @@ function closeGuide(e) {
 function renderGuide() {
     const step = GUIDE_STEPS[guideIndex];
     document.getElementById('guideBody').innerHTML = `
-        <div class="guide-emoji">${step.emoji}</div>
         <div class="guide-title">${step.title}</div>
         <div class="guide-text">${step.html}</div>
     `;
