@@ -8,11 +8,13 @@ CLI 사용법:
 
 함수 인터페이스 (app.py에서 import):
     init_db(db_path) -> Connection
-    load_vlm(device) -> (model, processor)
     load_clip(device) -> (model, preprocess)
-    index_folder(folder, db_path, vlm_model, vlm_processor, clip_model, clip_preprocess,
+    index_folder(folder, db_path, vlm_provider, clip_model, clip_preprocess,
                  device, progress=None, reindex=False, on_item=None, wd14=None, aliases=None) -> dict
+    backfill_vlm(db_path, vlm_provider, progress=None, on_item=None) -> dict
     backfill_wd14(db_path, wd14, aliases, progress=None, on_item=None) -> dict
+
+VLM 분석은 providers.py의 VLMProvider 추상화 사용 — 로컬 Qwen / OpenAI / Anthropic / Gemini 지원.
 """
 
 import argparse
@@ -26,22 +28,11 @@ import numpy as np
 import open_clip
 import torch
 from PIL import Image
-from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
-from qwen_vl_utils import process_vision_info
 
 import wd14_tagger
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 DB_DEFAULT = "images.db"
-
-VLM_PROMPT = """이 이미지를 분석해서 다음 형식으로 응답해줘:
-
-태그: (쉼표로 구분된 한국어 태그 5-10개. 캐릭터명, 작품명, 분위기, 상황 등)
-설명: (한국어로 1-2문장 설명)
-
-예시:
-태그: 고양이, 밈, 웃긴, 놀란 표정, 동물
-설명: 놀란 표정을 짓고 있는 고양이 밈 이미지."""
 
 WD14_GENERAL_TOPK = 30
 
@@ -117,20 +108,6 @@ def scan_images(root: str) -> list[Path]:
     return sorted(unique)
 
 
-def load_vlm(device: str):
-    """Qwen2.5-VL-7B-Instruct 로드."""
-    model_name = "Qwen/Qwen2.5-VL-7B-Instruct"
-    print(f"VLM 로딩 중: {model_name}")
-    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-        model_name,
-        torch_dtype=torch.float16,
-        device_map=device,
-    )
-    processor = AutoProcessor.from_pretrained(model_name)
-    print("VLM 로딩 완료")
-    return model, processor
-
-
 def load_clip(device: str):
     """CLIP ViT-B/32 로드."""
     print("CLIP 로딩 중: ViT-B-32")
@@ -185,51 +162,6 @@ def dedupe_all_tags(db_path: str) -> dict:
     return {"checked": len(rows), "changed": changed}
 
 
-def generate_tags(
-    image_path: Path,
-    vlm_model,
-    vlm_processor,
-) -> tuple[str, str]:
-    """VLM으로 태그 + 설명 생성."""
-    messages = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "image", "image": str(image_path)},
-                {"type": "text", "text": VLM_PROMPT},
-            ],
-        }
-    ]
-    text = vlm_processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-    image_inputs, video_inputs = process_vision_info(messages)
-    inputs = vlm_processor(
-        text=[text],
-        images=image_inputs,
-        videos=video_inputs,
-        padding=True,
-        return_tensors="pt",
-    ).to(vlm_model.device)
-
-    with torch.no_grad():
-        output_ids = vlm_model.generate(**inputs, max_new_tokens=256)
-    generated = output_ids[0][inputs.input_ids.shape[1]:]
-    response = vlm_processor.decode(generated, skip_special_tokens=True).strip()
-
-    tags = ""
-    description = ""
-    for line in response.split("\n"):
-        line = line.strip()
-        if line.startswith("태그:"):
-            tags = line[len("태그:"):].strip()
-        elif line.startswith("설명:"):
-            description = line[len("설명:"):].strip()
-
-    if not tags and not description:
-        description = response
-
-    return _dedupe_csv(tags), description
-
-
 def generate_embedding(
     image_path: Path,
     clip_model,
@@ -267,12 +199,14 @@ def _wd14_for_image(
 
 def backfill_vlm(
     db_path: str,
-    vlm_model,
-    vlm_processor,
+    provider,
     progress: Optional[dict] = None,
     on_item: Optional[Callable[[int, int, str, str, str], None]] = None,
 ) -> dict:
-    """AI 한국어 태그/설명이 비어있는 모든 이미지에 VLM 분석만 추가 (CLIP/WD14는 건드리지 않음)."""
+    """AI 한국어 태그/설명이 비어있는 모든 이미지에 VLM 분석만 추가 (CLIP/WD14는 건드리지 않음).
+
+    provider는 providers.VLMProvider — analyze(path) → (tags_csv, description) 반환.
+    """
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
@@ -304,7 +238,7 @@ def backfill_vlm(
             continue
 
         try:
-            tags, description = generate_tags(path, vlm_model, vlm_processor)
+            tags, description = provider.analyze(path)
             conn.execute(
                 "UPDATE images SET tags=?, description=? WHERE id=?",
                 (tags, description, row["id"]),
@@ -369,8 +303,7 @@ def _register_folder(conn: sqlite3.Connection, folder_path: str) -> tuple[int, s
 def index_folder(
     folder_path: str,
     db_path: str,
-    vlm_model,
-    vlm_processor,
+    vlm_provider,
     clip_model,
     clip_preprocess,
     device: str,
@@ -432,8 +365,8 @@ def index_folder(
             progress["current"] = i
             progress["current_file"] = image_path.name
         try:
-            if use_vlm and vlm_model is not None:
-                tags, description = generate_tags(image_path, vlm_model, vlm_processor)
+            if use_vlm and vlm_provider is not None:
+                tags, description = vlm_provider.analyze(image_path)
             else:
                 tags, description = "", ""
             embedding = generate_embedding(image_path, clip_model, clip_preprocess, device)
@@ -566,7 +499,9 @@ def main():
         print(f"오류: 경로가 존재하지 않습니다: {args.image_dir}")
         sys.exit(1)
 
-    vlm_model, vlm_processor = load_vlm(device)
+    from providers import LocalQwenProvider
+    vlm_provider = LocalQwenProvider(model_key="qwen2.5-vl-7b", device=device)
+    vlm_provider.ensure_ready()
     clip_model, clip_preprocess = load_clip(device)
     wd14 = None
     aliases = None
@@ -590,8 +525,7 @@ def main():
     result = index_folder(
         args.image_dir,
         args.db,
-        vlm_model,
-        vlm_processor,
+        vlm_provider,
         clip_model,
         clip_preprocess,
         device,

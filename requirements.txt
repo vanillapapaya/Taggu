@@ -3,12 +3,19 @@ fastapi
 uvicorn[standard]
 jinja2
 
-# ML
+# ML (로컬 모드용 — API 모드만 쓸 거면 생략 가능)
 torch
 open-clip-torch
 transformers
 accelerate
 qwen-vl-utils
+# Qwen2.5-VL-7B AWQ 4bit 양자화 사용 시:
+# autoawq
+
+# AI Provider SDK (각 provider는 lazy import — 안 깔려있어도 다른 provider는 동작)
+openai
+anthropic
+google-genai
 
 # Image
 Pillow

@@ -385,6 +385,141 @@
             color: var(--text-muted);
         }
 
+        .settings-modal {
+            flex-direction: column;
+            max-width: 560px;
+            width: 100%;
+            max-height: 86vh;
+        }
+        .settings-body {
+            padding: 24px 28px;
+            overflow-y: auto;
+        }
+        .settings-body h3 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--text);
+        }
+        .settings-body .settings-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 18px;
+        }
+        .settings-section {
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 14px 16px;
+            margin-bottom: 12px;
+            background: var(--bg-elev);
+        }
+        .settings-section.active {
+            border-color: var(--accent);
+            background: rgba(255,221,136,0.06);
+        }
+        .settings-section .sec-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+        .settings-section .sec-head h4 {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .settings-section .sec-head .sec-badge {
+            font-size: 10px;
+            font-weight: 500;
+            color: var(--text-muted);
+            background: var(--bg-card);
+            padding: 2px 8px;
+            border-radius: var(--radius-pill);
+        }
+        .settings-section.active .sec-head .sec-badge {
+            color: var(--accent-text);
+            background: var(--accent);
+        }
+        .settings-section input[type="radio"] {
+            accent-color: var(--accent);
+        }
+        .settings-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-top: 8px;
+        }
+        .settings-row label {
+            min-width: 80px;
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+        .settings-row input, .settings-row select {
+            flex: 1;
+            padding: 6px 10px;
+            height: 30px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text);
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-family: inherit;
+            outline: none;
+        }
+        .settings-row input:focus, .settings-row select:focus {
+            border-color: var(--accent);
+        }
+        .settings-row input[type="password"], .settings-row input.api-key {
+            font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+        }
+        .settings-note {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 6px;
+            padding-left: 88px;
+        }
+        .settings-foot {
+            display: flex;
+            gap: 8px;
+            margin-top: 18px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border);
+        }
+        .settings-foot button {
+            padding: 0 16px;
+            height: 34px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--bg-elev);
+            color: var(--text-dim);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.15s, color 0.15s;
+        }
+        .settings-foot button:hover { background: var(--bg-card); color: var(--text); }
+        .settings-foot button.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--accent-text);
+            margin-left: auto;
+        }
+        .settings-foot button.primary:hover { background: var(--accent-hover); }
+        .settings-foot button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .settings-status {
+            font-size: 12px;
+            margin-top: 10px;
+            min-height: 18px;
+        }
+        .settings-status.ok { color: var(--success); }
+        .settings-status.err { color: var(--error); }
+        .settings-status.busy { color: var(--accent); }
+
         .page-credit {
             max-width: 1400px;
             margin: 0 auto;
@@ -520,6 +655,18 @@
             color: var(--text);
             cursor: text;
             padding: 0 3px;
+        }
+        .tag.user .tag-label.editing {
+            outline-color: var(--user);
+            color: var(--user);
+        }
+        .tag.char .tag-label.editing {
+            outline-color: var(--char);
+            color: var(--char);
+        }
+        .tag.work .tag-label.editing {
+            outline-color: var(--work);
+            color: var(--work);
         }
         /* 드래그 앤 드롭 */
         .modal-info .card-tags[data-drop-zone] {
@@ -896,6 +1043,7 @@
         </div>
         <div class="header-actions">
             <button class="icon-action" id="toolbarToggle" title="관리 도구 (폴더 인덱싱 등)" onclick="toggleToolbar()">⋯</button>
+            <button class="icon-action" title="AI 분석 설정 (모델/API 키)" onclick="openSettings()">⚙</button>
             <button class="icon-action" title="단축키" onclick="togglePopoverMenu('shortcuts')">⌨</button>
             <button class="icon-action" title="정보 / 통계" onclick="togglePopoverMenu('info')">ℹ</button>
             <button class="icon-action" title="서버 로그 열기" onclick="openLog()">▤</button>
@@ -957,6 +1105,12 @@
     <div class="modal-content" onclick="event.stopPropagation()">
         <img class="modal-img" id="modalImg" src="" alt="">
         <div class="modal-info" id="modalInfo"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="settingsModal" onclick="closeSettings(event)">
+    <div class="modal-content settings-modal" onclick="event.stopPropagation()">
+        <div class="settings-body" id="settingsBody">로딩 중...</div>
     </div>
 </div>
 
@@ -1583,6 +1737,203 @@ async function togglePopoverMenu(name) {
     }
 }
 
+let settingsCatalog = null;
+
+async function openSettings() {
+    const modal = document.getElementById('settingsModal');
+    const body = document.getElementById('settingsBody');
+    body.innerHTML = '<div style="padding:40px 0;text-align:center;color:var(--text-muted)">로딩 중...</div>';
+    modal.classList.add('active');
+    try {
+        const res = await fetch('/api/settings');
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+        settingsCatalog = data;
+        renderSettings(data);
+    } catch (e) {
+        body.innerHTML = `<div style="padding:24px;color:var(--error)">설정 로드 실패: ${escapeHTML(e.message)}</div>`;
+    }
+}
+
+function closeSettings(e) {
+    if (!e || e.target === document.getElementById('settingsModal')) {
+        document.getElementById('settingsModal').classList.remove('active');
+    }
+}
+
+function renderSettings(data) {
+    const s = data.settings || {};
+    const cur = s.provider || 'local';
+    const vram = data.vram_gb;
+    const active = data.active || '미설정';
+
+    const localCfg = s.local || {};
+    const openaiCfg = s.openai || {};
+    const anthropicCfg = s.anthropic || {};
+    const geminiCfg = s.gemini || {};
+
+    const localOptions = Object.entries(data.local_models || {}).map(([key, info]) => {
+        const insufficient = vram !== null && vram !== undefined && info.vram_gb > vram;
+        const suffix = insufficient ? ` — VRAM 부족 (${vram}GB)` : '';
+        return `<option value="${key}" ${localCfg.model_key === key ? 'selected' : ''} ${insufficient ? 'disabled' : ''}>${escapeHTML(info.label)}${suffix}</option>`;
+    }).join('');
+
+    const modelSelect = (list, current) => list.map(m =>
+        `<option value="${m}" ${m === current ? 'selected' : ''}>${m}</option>`
+    ).join('');
+
+    const body = document.getElementById('settingsBody');
+    body.innerHTML = `
+        <h3>AI 분석 설정</h3>
+        <div class="settings-sub">
+            현재 적용: <strong style="color:var(--text)">${escapeHTML(active)}</strong>
+            ${vram !== null && vram !== undefined ? ` · 감지된 VRAM: ${vram}GB` : ' · CUDA GPU 미감지'}
+        </div>
+
+        <div class="settings-section ${cur === 'local' ? 'active' : ''}" id="sec-local">
+            <div class="sec-head" onclick="switchProvider('local')">
+                <h4><input type="radio" name="provider" value="local" ${cur === 'local' ? 'checked' : ''} onchange="switchProvider('local')"> 로컬 GPU (Qwen2.5-VL)</h4>
+                <span class="sec-badge">무료 · 오프라인</span>
+            </div>
+            <div class="settings-row">
+                <label>모델</label>
+                <select id="set-local-model">${localOptions}</select>
+            </div>
+            <div class="settings-note">처음 사용 시 모델 다운로드 (수 GB). AWQ 4bit 권장 — 품질 유지하며 VRAM 1/3.</div>
+        </div>
+
+        <div class="settings-section ${cur === 'openai' ? 'active' : ''}" id="sec-openai">
+            <div class="sec-head" onclick="switchProvider('openai')">
+                <h4><input type="radio" name="provider" value="openai" ${cur === 'openai' ? 'checked' : ''} onchange="switchProvider('openai')"> OpenAI</h4>
+                <span class="sec-badge">API · gpt-4o-mini ~₩4/장</span>
+            </div>
+            <div class="settings-row">
+                <label>모델</label>
+                <select id="set-openai-model">${modelSelect(data.openai_models, openaiCfg.model || 'gpt-4o-mini')}</select>
+            </div>
+            <div class="settings-row">
+                <label>API 키</label>
+                <input type="password" class="api-key" id="set-openai-key" placeholder="${openaiCfg.api_key_mask || 'sk-...'}" autocomplete="off">
+            </div>
+            <div class="settings-note">platform.openai.com/api-keys 에서 발급. 키 칸을 비우고 저장하면 기존 키 유지.</div>
+        </div>
+
+        <div class="settings-section ${cur === 'anthropic' ? 'active' : ''}" id="sec-anthropic">
+            <div class="sec-head" onclick="switchProvider('anthropic')">
+                <h4><input type="radio" name="provider" value="anthropic" ${cur === 'anthropic' ? 'checked' : ''} onchange="switchProvider('anthropic')"> Anthropic Claude</h4>
+                <span class="sec-badge">API · Haiku 4.5 ~₩4/장</span>
+            </div>
+            <div class="settings-row">
+                <label>모델</label>
+                <select id="set-anthropic-model">${modelSelect(data.anthropic_models, anthropicCfg.model || 'claude-haiku-4-5')}</select>
+            </div>
+            <div class="settings-row">
+                <label>API 키</label>
+                <input type="password" class="api-key" id="set-anthropic-key" placeholder="${anthropicCfg.api_key_mask || 'sk-ant-...'}" autocomplete="off">
+            </div>
+            <div class="settings-note">console.anthropic.com 에서 발급.</div>
+        </div>
+
+        <div class="settings-section ${cur === 'gemini' ? 'active' : ''}" id="sec-gemini">
+            <div class="sec-head" onclick="switchProvider('gemini')">
+                <h4><input type="radio" name="provider" value="gemini" ${cur === 'gemini' ? 'checked' : ''} onchange="switchProvider('gemini')"> Google Gemini</h4>
+                <span class="sec-badge">API · Flash 무료 티어 있음</span>
+            </div>
+            <div class="settings-row">
+                <label>모델</label>
+                <select id="set-gemini-model">${modelSelect(data.gemini_models, geminiCfg.model || 'gemini-2.0-flash')}</select>
+            </div>
+            <div class="settings-row">
+                <label>API 키</label>
+                <input type="password" class="api-key" id="set-gemini-key" placeholder="${geminiCfg.api_key_mask || 'AIza...'}" autocomplete="off">
+            </div>
+            <div class="settings-note">aistudio.google.com/apikey 에서 발급.</div>
+        </div>
+
+        <div class="settings-status" id="settingsStatus"></div>
+
+        <div class="settings-foot">
+            <button onclick="closeSettings()">취소</button>
+            <button id="settingsTestBtn" onclick="testSettings()">테스트</button>
+            <button class="primary" id="settingsSaveBtn" onclick="saveSettings()">저장</button>
+        </div>
+    `;
+}
+
+function switchProvider(kind) {
+    document.querySelectorAll('.settings-section').forEach(s => s.classList.remove('active'));
+    document.getElementById('sec-' + kind).classList.add('active');
+    document.querySelectorAll('input[name="provider"]').forEach(r => {
+        r.checked = r.value === kind;
+    });
+}
+
+function collectSettings() {
+    const cur = document.querySelector('input[name="provider"]:checked')?.value || 'local';
+    const out = { provider: cur, local: {}, openai: {}, anthropic: {}, gemini: {} };
+    out.local.model_key = document.getElementById('set-local-model').value;
+    out.openai.model = document.getElementById('set-openai-model').value;
+    out.openai.api_key = document.getElementById('set-openai-key').value;
+    out.anthropic.model = document.getElementById('set-anthropic-model').value;
+    out.anthropic.api_key = document.getElementById('set-anthropic-key').value;
+    out.gemini.model = document.getElementById('set-gemini-model').value;
+    out.gemini.api_key = document.getElementById('set-gemini-key').value;
+    return out;
+}
+
+function setSettingsStatus(text, kind) {
+    const el = document.getElementById('settingsStatus');
+    el.textContent = text;
+    el.className = 'settings-status' + (kind ? ' ' + kind : '');
+}
+
+async function testSettings() {
+    const btn = document.getElementById('settingsTestBtn');
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '테스트 중...';
+    setSettingsStatus('테스트 호출 중... (최대 30초)', 'busy');
+    try {
+        const res = await fetch('/api/settings/test', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({settings: collectSettings()}),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+        setSettingsStatus(`✓ ${data.name} 정상 — 응답: "${(data.tags || data.description || '').slice(0, 40)}..."`, 'ok');
+    } catch (e) {
+        setSettingsStatus(`✕ 실패: ${e.message}`, 'err');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+    }
+}
+
+async function saveSettings() {
+    const btn = document.getElementById('settingsSaveBtn');
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '저장 중...';
+    setSettingsStatus('저장 중...', 'busy');
+    try {
+        const res = await fetch('/api/settings', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({settings: collectSettings()}),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+        setSettingsStatus('✓ 저장 완료. AI 분석 시 새 설정이 적용됩니다.', 'ok');
+        setTimeout(() => closeSettings(), 1200);
+    } catch (e) {
+        setSettingsStatus(`✕ 저장 실패: ${e.message}`, 'err');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+    }
+}
+
 async function refreshInfoPopover() {
     const body = document.getElementById('infoPopoverBody');
     body.textContent = '로딩 중...';
@@ -1671,7 +2022,16 @@ async function pollUntilUp() {
 }
 
 async function startAIAnalysis() {
-    if (!confirm('AI 분석을 시작합니다. 진행할까요?')) return;
+    let warn = '';
+    try {
+        const s = await fetch('/api/settings').then(r => r.json());
+        const p = s.active || s.settings?.provider || '미설정';
+        warn = `현재 백엔드: ${p}\n\n`;
+        if (s.settings?.provider && s.settings.provider !== 'local') {
+            warn += '⚠ API 모드 — 분석할 이미지 수만큼 비용이 발생합니다.\n(⚙ 설정에서 백엔드 변경 가능)\n\n';
+        }
+    } catch {}
+    if (!confirm(warn + 'AI 분석을 시작합니다. 진행할까요?')) return;
     try {
         const res = await fetch('/api/backfill_vlm', { method: 'POST' });
         const data = await res.json();

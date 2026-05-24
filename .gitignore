@@ -46,5 +46,8 @@ server_err.txt
 # TLS certs / keys (mkcert)
 *.pem
 
+# Local settings (API keys 포함)
+settings.json
+
 # Claude
 .claude/

@@ -1,0 +1,346 @@
+"""VLM Provider 추상화 — 로컬(Qwen) / OpenAI / Anthropic / Gemini.
+
+각 provider는 (이미지 경로) → (한국어 태그 CSV, 한국어 설명) 반환.
+이미지 분석은 동기 호출 (전체 backfill 루프가 별도 스레드에서 돔).
+"""
+
+from __future__ import annotations
+
+import base64
+import json
+import mimetypes
+from pathlib import Path
+from typing import Optional, Protocol
+
+
+# 모든 provider 공통 프롬프트 — 일관된 결과 위해 동일하게 사용
+VLM_PROMPT = """이 이미지를 분석해서 다음 형식으로 응답해줘:
+
+태그: (쉼표로 구분된 한국어 태그 5-10개. 캐릭터명, 작품명, 분위기, 상황 등)
+설명: (한국어로 1-2문장 설명)
+
+예시:
+태그: 고양이, 밈, 웃긴, 놀란 표정, 동물
+설명: 놀란 표정을 짓고 있는 고양이 밈 이미지."""
+
+
+def _dedupe_csv(s: str) -> str:
+    seen: set[str] = set()
+    out: list[str] = []
+    for t in (s or "").split(","):
+        t = t.strip()
+        if t and t not in seen:
+            seen.add(t)
+            out.append(t)
+    return ", ".join(out)
+
+
+def _parse_response(response: str) -> tuple[str, str]:
+    tags = ""
+    description = ""
+    for line in response.split("\n"):
+        line = line.strip()
+        if line.startswith("태그:"):
+            tags = line[len("태그:"):].strip()
+        elif line.startswith("설명:"):
+            description = line[len("설명:"):].strip()
+    if not tags and not description:
+        description = response.strip()
+    return _dedupe_csv(tags), description
+
+
+def _image_to_data_url(image_path: Path) -> tuple[str, str, str]:
+    """이미지를 base64로 인코딩. (mime, base64_str, data_url) 반환."""
+    mime, _ = mimetypes.guess_type(str(image_path))
+    if not mime or not mime.startswith("image/"):
+        # 확장자 추론 실패 — 기본 jpeg로
+        mime = "image/jpeg"
+    raw = image_path.read_bytes()
+    b64 = base64.b64encode(raw).decode("ascii")
+    return mime, b64, f"data:{mime};base64,{b64}"
+
+
+class VLMProvider(Protocol):
+    name: str
+
+    def ensure_ready(self) -> None: ...
+    def analyze(self, image_path: Path) -> tuple[str, str]: ...
+
+
+# ───────────────────── Local Qwen ─────────────────────
+
+# 로컬 모델 카탈로그 — 사용자가 선택 가능한 변종
+LOCAL_MODELS = {
+    "qwen2.5-vl-7b": {
+        "id": "Qwen/Qwen2.5-VL-7B-Instruct",
+        "label": "Qwen2.5-VL-7B (FP16, ~16GB VRAM)",
+        "vram_gb": 16,
+        "quantized": False,
+    },
+    "qwen2.5-vl-7b-awq": {
+        "id": "Qwen/Qwen2.5-VL-7B-Instruct-AWQ",
+        "label": "Qwen2.5-VL-7B AWQ 4bit (~6GB VRAM)",
+        "vram_gb": 6,
+        "quantized": True,
+    },
+    "qwen2.5-vl-3b": {
+        "id": "Qwen/Qwen2.5-VL-3B-Instruct",
+        "label": "Qwen2.5-VL-3B (FP16, ~7GB VRAM)",
+        "vram_gb": 7,
+        "quantized": False,
+    },
+}
+
+
+class LocalQwenProvider:
+    def __init__(self, model_key: str = "qwen2.5-vl-7b", device: str = "cuda"):
+        if model_key not in LOCAL_MODELS:
+            raise ValueError(f"알 수 없는 로컬 모델: {model_key}")
+        self.model_key = model_key
+        self.model_id = LOCAL_MODELS[model_key]["id"]
+        self.device = device
+        self.name = LOCAL_MODELS[model_key]["label"]
+        self._model = None
+        self._processor = None
+
+    def ensure_ready(self) -> None:
+        if self._model is not None:
+            return
+        import torch
+        from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
+
+        kwargs: dict = {"device_map": self.device}
+        if LOCAL_MODELS[self.model_key]["quantized"]:
+            # AWQ는 자체 양자화 정보를 모델에 내장 — dtype 지정 X
+            pass
+        else:
+            kwargs["torch_dtype"] = torch.float16
+
+        self._model = Qwen2_5_VLForConditionalGeneration.from_pretrained(self.model_id, **kwargs)
+        self._processor = AutoProcessor.from_pretrained(self.model_id)
+
+    def analyze(self, image_path: Path) -> tuple[str, str]:
+        self.ensure_ready()
+        import torch
+        from qwen_vl_utils import process_vision_info
+
+        messages = [{
+            "role": "user",
+            "content": [
+                {"type": "image", "image": str(image_path)},
+                {"type": "text", "text": VLM_PROMPT},
+            ],
+        }]
+        text = self._processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        image_inputs, video_inputs = process_vision_info(messages)
+        inputs = self._processor(
+            text=[text], images=image_inputs, videos=video_inputs,
+            padding=True, return_tensors="pt",
+        ).to(self._model.device)
+        with torch.no_grad():
+            output_ids = self._model.generate(**inputs, max_new_tokens=256)
+        generated = output_ids[0][inputs.input_ids.shape[1]:]
+        response = self._processor.decode(generated, skip_special_tokens=True).strip()
+        return _parse_response(response)
+
+
+# ───────────────────── OpenAI ─────────────────────
+
+OPENAI_MODELS = ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1"]
+
+
+class OpenAIProvider:
+    def __init__(self, api_key: str, model: str = "gpt-4o-mini"):
+        if not api_key:
+            raise ValueError("OpenAI API 키 필요")
+        self.api_key = api_key
+        self.model = model
+        self.name = f"OpenAI {model}"
+        self._client = None
+
+    def ensure_ready(self) -> None:
+        if self._client is not None:
+            return
+        from openai import OpenAI
+        self._client = OpenAI(api_key=self.api_key)
+
+    def analyze(self, image_path: Path) -> tuple[str, str]:
+        self.ensure_ready()
+        _, _, data_url = _image_to_data_url(image_path)
+        resp = self._client.chat.completions.create(
+            model=self.model,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": VLM_PROMPT},
+                    {"type": "image_url", "image_url": {"url": data_url}},
+                ],
+            }],
+            max_tokens=512,
+        )
+        return _parse_response(resp.choices[0].message.content or "")
+
+
+# ───────────────────── Anthropic ─────────────────────
+
+ANTHROPIC_MODELS = [
+    "claude-haiku-4-5",
+    "claude-sonnet-4-6",
+    "claude-opus-4-7",
+]
+
+
+class AnthropicProvider:
+    def __init__(self, api_key: str, model: str = "claude-haiku-4-5"):
+        if not api_key:
+            raise ValueError("Anthropic API 키 필요")
+        self.api_key = api_key
+        self.model = model
+        self.name = f"Anthropic {model}"
+        self._client = None
+
+    def ensure_ready(self) -> None:
+        if self._client is not None:
+            return
+        from anthropic import Anthropic
+        self._client = Anthropic(api_key=self.api_key)
+
+    def analyze(self, image_path: Path) -> tuple[str, str]:
+        self.ensure_ready()
+        mime, b64, _ = _image_to_data_url(image_path)
+        resp = self._client.messages.create(
+            model=self.model,
+            max_tokens=512,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "image", "source": {
+                        "type": "base64", "media_type": mime, "data": b64,
+                    }},
+                    {"type": "text", "text": VLM_PROMPT},
+                ],
+            }],
+        )
+        text = "".join(block.text for block in resp.content if getattr(block, "type", "") == "text")
+        return _parse_response(text)
+
+
+# ───────────────────── Gemini ─────────────────────
+
+GEMINI_MODELS = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro"]
+
+
+class GeminiProvider:
+    def __init__(self, api_key: str, model: str = "gemini-2.0-flash"):
+        if not api_key:
+            raise ValueError("Gemini API 키 필요")
+        self.api_key = api_key
+        self.model = model
+        self.name = f"Gemini {model}"
+        self._client = None
+
+    def ensure_ready(self) -> None:
+        if self._client is not None:
+            return
+        from google import genai
+        self._client = genai.Client(api_key=self.api_key)
+
+    def analyze(self, image_path: Path) -> tuple[str, str]:
+        self.ensure_ready()
+        from google.genai import types
+        mime, _, _ = _image_to_data_url(image_path)
+        image_bytes = image_path.read_bytes()
+        resp = self._client.models.generate_content(
+            model=self.model,
+            contents=[
+                types.Part.from_bytes(data=image_bytes, mime_type=mime),
+                VLM_PROMPT,
+            ],
+        )
+        return _parse_response(resp.text or "")
+
+
+# ───────────────────── Factory ─────────────────────
+
+def make_provider(settings: dict) -> VLMProvider:
+    """settings dict에서 provider 인스턴스 생성.
+
+    settings 형식:
+        {
+            "provider": "local" | "openai" | "anthropic" | "gemini",
+            "local": {"model_key": "qwen2.5-vl-7b-awq", "device": "cuda"},
+            "openai": {"api_key": "sk-...", "model": "gpt-4o-mini"},
+            ...
+        }
+    """
+    kind = settings.get("provider", "local")
+    if kind == "local":
+        cfg = settings.get("local", {})
+        return LocalQwenProvider(
+            model_key=cfg.get("model_key", "qwen2.5-vl-7b"),
+            device=cfg.get("device", "cuda"),
+        )
+    if kind == "openai":
+        cfg = settings.get("openai", {})
+        return OpenAIProvider(api_key=cfg.get("api_key", ""), model=cfg.get("model", "gpt-4o-mini"))
+    if kind == "anthropic":
+        cfg = settings.get("anthropic", {})
+        return AnthropicProvider(api_key=cfg.get("api_key", ""), model=cfg.get("model", "claude-haiku-4-5"))
+    if kind == "gemini":
+        cfg = settings.get("gemini", {})
+        return GeminiProvider(api_key=cfg.get("api_key", ""), model=cfg.get("model", "gemini-2.0-flash"))
+    raise ValueError(f"알 수 없는 provider: {kind}")
+
+
+# ───────────────────── 설정 영속화 ─────────────────────
+
+def load_settings(path: Path) -> dict:
+    if path.exists():
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    # 첫 실행 — VRAM 감지해서 적절한 디폴트 추천
+    vram = detect_vram_gb()
+    if vram is None:
+        # GPU 없음 — API 모드 비워두고 사용자가 ⚙에서 키 입력 유도
+        return {
+            "provider": "openai",
+            "openai": {"api_key": "", "model": "gpt-4o-mini"},
+            "anthropic": {"api_key": "", "model": "claude-haiku-4-5"},
+            "gemini": {"api_key": "", "model": "gemini-2.0-flash"},
+        }
+    if vram < 8:
+        default_model = "qwen2.5-vl-7b-awq"  # 6GB
+    elif vram < 12:
+        default_model = "qwen2.5-vl-3b"      # 7GB
+    else:
+        default_model = "qwen2.5-vl-7b"      # 16GB
+    return {"provider": "local", "local": {"model_key": default_model, "device": "cuda"}}
+
+
+def save_settings(path: Path, settings: dict) -> None:
+    path.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def settings_for_display(settings: dict) -> dict:
+    """API 키를 마스킹한 사본 (UI 전송용)."""
+    out = json.loads(json.dumps(settings))  # deep copy
+    for key in ("openai", "anthropic", "gemini"):
+        if key in out and "api_key" in out[key]:
+            k = out[key]["api_key"]
+            out[key]["api_key_mask"] = (k[:6] + "•••" + k[-4:]) if len(k) > 12 else ("•••" if k else "")
+            out[key]["api_key"] = ""  # 절대 평문 전송 X
+    return out
+
+
+def detect_vram_gb() -> Optional[float]:
+    """CUDA VRAM 총량 (GB). 감지 실패 시 None."""
+    try:
+        import torch
+        if not torch.cuda.is_available():
+            return None
+        total = torch.cuda.get_device_properties(0).total_memory
+        return round(total / (1024 ** 3), 1)
+    except Exception:
+        return None

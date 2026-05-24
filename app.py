@@ -33,10 +33,10 @@ from index import (
     dedupe_all_tags,
     index_folder,
     init_db,
-    load_vlm,
     relocalize,
 )
 import make_icon
+import providers
 
 DB_DEFAULT = "images.db"
 ALIASES_PATH = "character_aliases.json"
@@ -67,6 +67,14 @@ class MoveTagRequest(BaseModel):
     tag: str
     source: str  # "user" | "char" | "ai"
     target: str  # "user" | "char" | "ai"
+
+
+class SettingsRequest(BaseModel):
+    settings: dict
+
+
+class SettingsTestRequest(BaseModel):
+    settings: dict
 
 
 MAX_USER_TAG_LEN = 50
@@ -153,13 +161,37 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
 
     # WD14는 lazy load (첫 캐릭터 인식 시 ~15-20초 추가 대기, 그 후엔 메모리 유지)
     wd14_state = {"model": None}
-    vlm_state = {"model": None, "processor": None}
+
+    # VLM provider — 설정에 따라 로컬 / OpenAI / Anthropic / Gemini 중 하나
+    settings_path = Path(__file__).parent / "settings.json"
+    vlm_state: dict = {"provider": None, "settings": providers.load_settings(settings_path)}
 
     def ensure_wd14():
         if wd14_state["model"] is None:
             index_state["message"] = "캐릭터 인식 모델 준비 중... (~15-20초, 첫 1회만)"
             wd14_state["model"] = wd14_tagger.load_wd14()
         return wd14_state["model"]
+
+    def get_vlm_provider():
+        """현재 설정으로 provider 인스턴스 보장. 설정 변경 시 invalidate_vlm_provider 호출."""
+        if vlm_state["provider"] is None:
+            vlm_state["provider"] = providers.make_provider(vlm_state["settings"])
+        return vlm_state["provider"]
+
+    def invalidate_vlm_provider():
+        # GPU 메모리 회수 위해 명시적 해제
+        old = vlm_state["provider"]
+        vlm_state["provider"] = None
+        if old is not None and hasattr(old, "_model") and old._model is not None:
+            try:
+                del old._model
+                del old._processor
+                import gc
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            except Exception:
+                pass
 
     index_lock = threading.Lock()
     index_state: dict = {
@@ -212,7 +244,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
             return
         try:
             need_wd14 = wd14_state["model"] is None
-            need_vlm = with_ai and vlm_state["model"] is None
+            need_vlm = with_ai and vlm_state["provider"] is None
             msg_parts = []
             if need_wd14:
                 msg_parts.append("캐릭터 인식 모델 준비 중...")
@@ -222,10 +254,9 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
 
             wd14 = ensure_wd14()
 
-            if need_vlm:
-                model, processor = load_vlm(device)
-                vlm_state["model"] = model
-                vlm_state["processor"] = processor
+            provider = get_vlm_provider() if with_ai else None
+            if provider is not None:
+                provider.ensure_ready()
 
             index_state["status"] = "running"
             index_state["message"] = ""
@@ -233,8 +264,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
             index_folder(
                 folder_path,
                 db_path,
-                vlm_state["model"] if with_ai else None,
-                vlm_state["processor"] if with_ai else None,
+                provider,
                 clip_model,
                 clip_preprocess,
                 device,
@@ -806,15 +836,14 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         if not index_lock.acquire(blocking=False):
             return
         try:
-            need_vlm = vlm_state["model"] is None
-            _reset_progress("(AI 분석)", "AI 모델 준비 중..." if need_vlm else "")
-            if need_vlm:
-                model, processor = load_vlm(device)
-                vlm_state["model"] = model
-                vlm_state["processor"] = processor
+            need_vlm = vlm_state["provider"] is None
+            provider = get_vlm_provider()
+            label = f"(AI 분석 · {provider.name})"
+            _reset_progress(label, f"{provider.name} 준비 중..." if need_vlm else "")
+            provider.ensure_ready()
             index_state["status"] = "running"
             index_state["message"] = ""
-            backfill_vlm(db_path, vlm_state["model"], vlm_state["processor"], progress=index_state)
+            backfill_vlm(db_path, provider, progress=index_state)
             index_state["status"] = "done"
             index_state["finished_at"] = time.time()
             index_state["message"] = (
@@ -835,6 +864,72 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         thread = threading.Thread(target=run_backfill_vlm, daemon=True)
         thread.start()
         return {"status": "started"}
+
+    @app.get("/api/settings")
+    async def get_settings_endpoint():
+        """현재 설정 (API 키 마스킹) + 모델 카탈로그 + 감지된 VRAM."""
+        return {
+            "settings": providers.settings_for_display(vlm_state["settings"]),
+            "local_models": providers.LOCAL_MODELS,
+            "openai_models": providers.OPENAI_MODELS,
+            "anthropic_models": providers.ANTHROPIC_MODELS,
+            "gemini_models": providers.GEMINI_MODELS,
+            "vram_gb": providers.detect_vram_gb(),
+            "active": vlm_state["provider"].name if vlm_state["provider"] is not None else None,
+        }
+
+    @app.post("/api/settings")
+    async def save_settings_endpoint(req: SettingsRequest):
+        """설정 저장 + 즉시 적용. API 키 빈 값이면 기존 키 유지."""
+        try:
+            new = _merge_settings(vlm_state["settings"], req.settings)
+            providers.make_provider(new)  # 유효성 검증 (생성 가능 여부만)
+            providers.save_settings(settings_path, new)
+            vlm_state["settings"] = new
+            invalidate_vlm_provider()
+            return {"status": "ok", "settings": providers.settings_for_display(new)}
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    @app.post("/api/settings/test")
+    async def test_settings_endpoint(req: SettingsTestRequest):
+        """저장 없이 제안된 설정으로 1x1 더미 이미지 1회 호출 테스트."""
+        try:
+            merged = _merge_settings(vlm_state["settings"], req.settings)
+            provider = providers.make_provider(merged)
+            # 1x1 흰색 PNG 임시 파일
+            import tempfile
+            from PIL import Image as PILImage
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tf:
+                PILImage.new("RGB", (32, 32), (255, 255, 255)).save(tf, "PNG")
+                tmp_path = Path(tf.name)
+            try:
+                provider.ensure_ready()
+                tags, desc = provider.analyze(tmp_path)
+            finally:
+                try: tmp_path.unlink()
+                except Exception: pass
+            return {"status": "ok", "tags": tags, "description": desc, "name": provider.name}
+        except Exception as e:
+            traceback.print_exc()
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    def _merge_settings(current: dict, incoming: dict) -> dict:
+        """incoming을 current에 머지. API 키가 빈 문자열이면 기존 키 보존."""
+        import copy
+        merged = copy.deepcopy(current)
+        merged["provider"] = incoming.get("provider", merged.get("provider", "local"))
+        for key in ("local", "openai", "anthropic", "gemini"):
+            if key in incoming:
+                if key not in merged:
+                    merged[key] = {}
+                for k, v in incoming[key].items():
+                    if k == "api_key" and not v:
+                        continue  # 빈 키는 무시 (기존 보존)
+                    if k.endswith("_mask"):
+                        continue  # 표시용 필드는 저장 X
+                    merged[key][k] = v
+        return merged
 
     @app.post("/api/backfill_wd14")
     async def start_backfill():
