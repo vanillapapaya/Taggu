@@ -38,9 +38,15 @@ from index import (
 import make_icon
 import providers
 
+def _bundle_resource(rel: str) -> Path:
+    """번들된 리소스(templates/icon/aliases) 경로. PyInstaller 시 _MEIPASS, 일반 dev 시 스크립트 디렉토리."""
+    base = Path(getattr(__import__("sys"), "_MEIPASS", Path(__file__).parent))
+    return base / rel
+
+
 DB_DEFAULT = "images.db"
-ALIASES_PATH = "character_aliases.json"
-ICON_PATH = Path(__file__).parent / "icon.ico"
+ALIASES_PATH = str(_bundle_resource("character_aliases.json"))
+ICON_PATH = _bundle_resource("icon.ico")
 
 
 class IndexRequest(BaseModel):
@@ -132,7 +138,7 @@ def _is_local_request(request: Request) -> bool:
 
 def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
     app = FastAPI(title="Yoink")
-    templates = Jinja2Templates(directory="templates")
+    templates = Jinja2Templates(directory=str(_bundle_resource("templates")))
 
     conn0 = init_db(db_path)
     if initial_folder:
@@ -321,9 +327,9 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         wd_missing = conn.execute("SELECT COUNT(*) FROM images WHERE wd_chars IS NULL").fetchone()[0]
         conn.close()
         return templates.TemplateResponse(
+            request,
             "index.html",
             {
-                "request": request,
                 "total": total,
                 "wd_missing": wd_missing,
                 "is_local": _is_local_request(request),

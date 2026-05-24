@@ -9,6 +9,8 @@ build/
 *.egg
 venv/
 .venv/
+.venv-build/
+.venv-awq/
 env/
 
 # Environment
