@@ -9,8 +9,8 @@ open-clip-torch
 transformers
 accelerate
 qwen-vl-utils
-# Qwen2.5-VL-7B AWQ 4bit 양자화 사용 시:
-# autoawq
+# 4bit 양자화 (7B 모델을 ~6GB VRAM에서 돌릴 때 필요)
+bitsandbytes
 
 # AI Provider SDK (각 provider는 lazy import — 안 깔려있어도 다른 provider는 동작)
 openai

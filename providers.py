@@ -70,24 +70,25 @@ class VLMProvider(Protocol):
 # ───────────────────── Local Qwen ─────────────────────
 
 # 로컬 모델 카탈로그 — 사용자가 선택 가능한 변종
+# quant: None (FP16) | "bnb4" (bitsandbytes 4bit nf4, double quant)
 LOCAL_MODELS = {
     "qwen2.5-vl-7b": {
         "id": "Qwen/Qwen2.5-VL-7B-Instruct",
         "label": "Qwen2.5-VL-7B (FP16, ~16GB VRAM)",
         "vram_gb": 16,
-        "quantized": False,
+        "quant": None,
     },
-    "qwen2.5-vl-7b-awq": {
-        "id": "Qwen/Qwen2.5-VL-7B-Instruct-AWQ",
-        "label": "Qwen2.5-VL-7B AWQ 4bit (~6GB VRAM)",
+    "qwen2.5-vl-7b-bnb4": {
+        "id": "Qwen/Qwen2.5-VL-7B-Instruct",
+        "label": "Qwen2.5-VL-7B 4bit (bnb, ~6GB VRAM)",
         "vram_gb": 6,
-        "quantized": True,
+        "quant": "bnb4",
     },
     "qwen2.5-vl-3b": {
         "id": "Qwen/Qwen2.5-VL-3B-Instruct",
         "label": "Qwen2.5-VL-3B (FP16, ~7GB VRAM)",
         "vram_gb": 7,
-        "quantized": False,
+        "quant": None,
     },
 }
 
@@ -110,9 +111,15 @@ class LocalQwenProvider:
         from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
 
         kwargs: dict = {"device_map": self.device}
-        if LOCAL_MODELS[self.model_key]["quantized"]:
-            # AWQ는 자체 양자화 정보를 모델에 내장 — dtype 지정 X
-            pass
+        quant = LOCAL_MODELS[self.model_key]["quant"]
+        if quant == "bnb4":
+            from transformers import BitsAndBytesConfig
+            kwargs["quantization_config"] = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=torch.float16,
+                bnb_4bit_use_double_quant=True,
+            )
         else:
             kwargs["torch_dtype"] = torch.float16
 
@@ -311,7 +318,7 @@ def load_settings(path: Path) -> dict:
             "gemini": {"api_key": "", "model": "gemini-2.0-flash"},
         }
     if vram < 8:
-        default_model = "qwen2.5-vl-7b-awq"  # 6GB
+        default_model = "qwen2.5-vl-7b-bnb4"  # 6GB
     elif vram < 12:
         default_model = "qwen2.5-vl-3b"      # 7GB
     else:
