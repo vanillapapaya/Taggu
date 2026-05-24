@@ -1887,9 +1887,37 @@ const GUIDE_STEPS = [
         html: '사진 위에 마우스를 올리면 <span class="hilight">★</span> (즐겨찾기), <span class="hilight">✕</span> (숨기기) 버튼이 나타나요.<br><br>마음에 드는 사진은 ★ 눌러두면 나중에 [★] 탭에서 모아볼 수 있어요.',
     },
     {
+        emoji: '🏷️',
+        title: '5단계 — 태그가 뭐예요?',
+        html: '사진을 누르면 큰 창이 떠요. 거기에 단어들이 <strong>3가지 색</strong>으로 붙어있어요:<br><br>' +
+              '<span class="tag char" style="font-size:11px">분홍 = 캐릭터</span>  ' +
+              '<span class="tag user" style="font-size:11px">보라 = 내 태그</span>  ' +
+              '<span class="tag" style="font-size:11px">회색 = AI</span><br><br>' +
+              '분홍은 누군지 알아낸 것, 보라는 내가 직접 단 것, 회색은 AI가 만든 것이에요.',
+    },
+    {
+        emoji: '✏️',
+        title: '6단계 — 태그 다루기',
+        html: '<strong>잘못된 태그를 옮기고 싶을 때:</strong><br>그 단어를 <span class="hilight">끌어다</span> 다른 색 자리에 놓으면 옮겨져요.<br><br>' +
+              '<strong>글자를 고치고 싶을 때:</strong> 단어를 <span class="hilight">더블클릭</span>!<br>' +
+              '<strong>지우고 싶을 때:</strong> 단어에 마우스 올리면 보이는 <span class="hilight">×</span>를 누르세요.<br><br>' +
+              '<span style="color:var(--text-muted);font-size:13px">새 태그는 아래 입력칸에 적고 Enter</span>',
+    },
+    {
         emoji: '🤖',
-        title: '5단계 — AI한테 더 자세히 분석시키기',
-        html: '<span class="hilight">⚙</span> 버튼에서 어떤 AI를 쓸지 고를 수 있어요.<br><br>그래픽카드(GPU)가 있으면 <strong>로컬</strong>, 없으면 <strong>API 모드</strong>(키 필요).<br><br><span style="color:var(--text-muted);font-size:13px">키가 없어도 기본 검색은 다 돼요!</span>',
+        title: '7단계 — AI 종류 고르기',
+        html: '<span class="hilight">⚙</span> 버튼에서 4가지 중 하나를 골라요:<br><br>' +
+              '🖥️ <strong>로컬 (GPU 있으면)</strong> — 무료, 인터넷 X<br>' +
+              '🌐 <strong>OpenAI / Claude</strong> — 사진 1장당 약 ₩4<br>' +
+              '✨ <strong>Gemini Flash</strong> — 거의 무료에 빠름<br><br>' +
+              '<span style="color:var(--text-muted);font-size:13px">잘 모르겠으면 Gemini로! API 키는 무료로 받을 수 있어요.</span>',
+    },
+    {
+        emoji: '💰',
+        title: '8단계 — 키 얻고 테스트하기',
+        html: '⚙ 모달에서 안내 링크를 누르면 키 받는 곳으로 가요.<br><br>' +
+              '<strong>aistudio.google.com</strong> (Gemini) → 로그인 → "Create API key" → 복사<br><br>' +
+              '키를 붙여넣고 <span class="hilight">[테스트]</span> 누르면 진짜로 잘 되는지 확인해요.<br>초록색 ✓ 나오면 <span class="hilight">[저장]</span>!',
     },
     {
         emoji: '🎉',
