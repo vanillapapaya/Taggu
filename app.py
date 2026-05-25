@@ -1151,6 +1151,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
     THUMB_DIR = Path("thumbnails")
     THUMB_SIZE = 480  # 카드 그리드는 240px 표시, retina 대비 2x
     THUMB_MAX_FRAMES = 60  # 너무 긴 GIF는 프레임 캡 (인코딩 시간 보호)
+    THUMB_VERSION = "v2"  # GIF 애니메이션 보존 도입 — 옛 정적 캐시 무효화
 
     def _make_thumbnail(src: Path, cache: Path) -> bool:
         """src를 thumb_size 이내로 리사이즈해 cache에 WebP 저장.
@@ -1210,7 +1211,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
 
         THUMB_DIR.mkdir(exist_ok=True)
         mtime_int = int(row["mtime"] or src.stat().st_mtime)
-        cache = THUMB_DIR / f"{image_id}_{mtime_int}_{THUMB_SIZE}.webp"
+        cache = THUMB_DIR / f"{image_id}_{mtime_int}_{THUMB_SIZE}_{THUMB_VERSION}.webp"
 
         if not cache.exists():
             if not _make_thumbnail(src, cache):
