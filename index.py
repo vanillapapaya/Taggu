@@ -96,8 +96,19 @@ def get_indexed_paths(conn: sqlite3.Connection) -> set[str]:
     return {row[0] for row in rows}
 
 
+# 이미지 관리 앱이 원본 사본을 보관하는 라이브러리 폴더 — 스캔 제외
+# (path component 끝이 이 중 하나로 끝나면 그 안쪽은 모두 스킵)
+EXCLUDED_DIR_SUFFIXES = (".library", ".eagle", ".aseprite-cache", ".thumbs")
+
+
+def is_library_path(p: Path) -> bool:
+    """경로 components 중 하나라도 라이브러리 디렉토리이면 True."""
+    parts = [seg.lower() for seg in p.parts]
+    return any(seg.endswith(EXCLUDED_DIR_SUFFIXES) for seg in parts)
+
+
 def scan_images(root: str) -> list[Path]:
-    """폴더 재귀 스캔하여 이미지 파일 목록 반환."""
+    """폴더 재귀 스캔하여 이미지 파일 목록 반환. 라이브러리 폴더(*.library 등)는 제외."""
     root_path = Path(root)
     if not root_path.exists():
         raise FileNotFoundError(f"경로가 존재하지 않습니다: {root}")
@@ -109,6 +120,8 @@ def scan_images(root: str) -> list[Path]:
     seen = set()
     unique = []
     for p in images:
+        if is_library_path(p):
+            continue
         resolved = str(p.resolve())
         if resolved not in seen:
             seen.add(resolved)

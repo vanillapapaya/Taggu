@@ -692,6 +692,29 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
             "tags": fields["tags"],
         }
 
+    @app.post("/api/cleanup_library_dupes")
+    async def cleanup_library_dupes():
+        """경로 components에 *.library / *.eagle 등이 포함된 row 일괄 삭제.
+
+        Eagle, Aseprite 등 이미지 관리 앱의 라이브러리 폴더는 원본 사본을 보관하므로
+        기존 인덱싱에서 같은 파일이 2~3번 들어간 경우 정리. 미래 인덱싱은 scan_images에서 사전 제외.
+        """
+        if index_lock.locked():
+            return JSONResponse({"error": "다른 작업이 진행 중입니다"}, status_code=409)
+        suffixes = (".library", ".eagle", ".aseprite-cache", ".thumbs")
+        conn = get_db()
+        rows = conn.execute("SELECT id, path FROM images").fetchall()
+        to_delete = []
+        for row in rows:
+            parts = [seg.lower() for seg in Path(row["path"]).parts]
+            if any(seg.endswith(suffixes) for seg in parts):
+                to_delete.append(row["id"])
+        if to_delete:
+            conn.executemany("DELETE FROM images WHERE id=?", [(i,) for i in to_delete])
+            conn.commit()
+        conn.close()
+        return {"status": "done", "deleted": len(to_delete), "checked": len(rows)}
+
     @app.post("/api/dedupe_tags")
     async def do_dedupe_tags():
         """모든 이미지의 tags / wd_chars(_ko) / wd_general / user_tags 중복 정리."""

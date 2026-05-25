@@ -1236,6 +1236,7 @@
         <button id="aiBtn" onclick="startAIAnalysis()" title="AI로 한국어 태그/설명 생성">AI 분석</button>
         <button onclick="startRelocalize()" title="이름 사전을 다시 읽어 캐릭터 이름 갱신 (이미지 재분석 X)">이름 다시 적용</button>
         <button onclick="startDedupeTags()" title="모든 이미지의 중복 태그 일괄 정리 (다리미×30 같은 경우)">중복 정리</button>
+        <button onclick="startCleanupLibrary()" title="Eagle 등 이미지 관리 앱 라이브러리(*.library)에서 사본으로 들어간 중복 row 삭제">라이브러리 중복 청소</button>
         <button onclick="toggleFolderPanel()">폴더 목록</button>
     </div>
 
@@ -2419,6 +2420,27 @@ async function startAIAnalysis() {
     }
 }
 
+async function startCleanupLibrary() {
+    if (!confirm('Eagle 등 라이브러리 폴더(*.library, *.eagle ...)에 사본으로 들어간 row를 삭제합니다.\n원본 이미지 파일은 그대로 두고 DB의 중복 인덱스만 정리해요.\n\n진행할까요?')) return;
+    try {
+        const res = await fetch('/api/cleanup_library_dupes', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+            alert('오류: ' + (data.error || res.statusText));
+            return;
+        }
+        alert(`정리 완료\n${data.deleted}개 row 삭제 / 전체 ${data.checked}개 확인`);
+        if (currentMode === 'browse') {
+            browseOffset = 0;
+            grid.innerHTML = ''; cardData = [];
+            loadBrowse();
+        }
+        loadCounts();
+    } catch (e) {
+        alert('실패: ' + e.message);
+    }
+}
+
 async function startDedupeTags() {
     if (!confirm('모든 이미지의 중복 태그를 정리합니다. 진행할까요?')) return;
     try {
@@ -2795,26 +2817,34 @@ async function pollProgress() {
     const elem = document.getElementById('progress');
     elem.style.display = 'block';
 
-    async function tick() {
+    // 이전 poll 중단 (재호출 시 stopFlag flip)
+    if (pollTimer) { pollTimer.stopped = true; }
+    const myToken = pollTimer = { stopped: false };
+
+    while (!myToken.stopped) {
+        let done = false;
         try {
             const res = await fetch('/api/index/status');
             const s = await res.json();
             renderProgress(s);
             if (s.status === 'idle' || s.status === 'done' || s.status === 'error') {
-                if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-                await loadFolders();
-                loadCounts();
-                if (currentMode === 'browse') {
-                    browseOffset = 0;
-                    grid.innerHTML = ''; cardData = [];
-                    loadBrowse();
-                }
+                done = true;
             }
         } catch (e) { console.error(e); }
+
+        if (done) {
+            myToken.stopped = true;
+            await loadFolders();
+            loadCounts();
+            if (currentMode === 'browse') {
+                browseOffset = 0;
+                grid.innerHTML = ''; cardData = [];
+                await loadBrowse();
+            }
+            return;
+        }
+        await new Promise(r => setTimeout(r, 1000));
     }
-    if (pollTimer) clearInterval(pollTimer);
-    await tick();
-    pollTimer = setInterval(tick, 1000);
 }
 
 function renderProgress(s) {
