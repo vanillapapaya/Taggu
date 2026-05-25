@@ -154,6 +154,47 @@
         .view-tabs button:hover { color: var(--text-dim); }
         .view-tabs button.active { background: var(--bg-card); color: var(--text); }
 
+        .filter-chips {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .filter-chips .chip {
+            padding: 5px 11px;
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-pill);
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.12s, color 0.12s, border-color 0.12s;
+            font-family: inherit;
+        }
+        .filter-chips .chip:hover {
+            color: var(--text-dim);
+            border-color: var(--border-strong);
+        }
+        .filter-chips .chip.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--accent-text);
+        }
+        .filter-chips .chip span {
+            opacity: 0.7;
+            margin-left: 2px;
+        }
+        .filter-chips .chip-clear {
+            color: var(--text-muted);
+            border-style: dashed;
+        }
+        .filter-chips .chip-clear:hover {
+            color: var(--error);
+            border-color: var(--error);
+        }
+
         .header-actions {
             display: flex;
             gap: 4px;
@@ -329,7 +370,8 @@
             color: var(--text);
             border-radius: var(--radius-sm);
             font-size: 13px;
-            font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+            font-family: inherit;
+            letter-spacing: 0.005em;
             outline: none;
             transition: border-color 0.15s;
         }
@@ -1210,18 +1252,23 @@
         <div class="view-tabs" id="viewTabs">
             <button class="active" data-view="all" onclick="setView('all')">전체 <span id="cntAll"></span></button>
             <button data-view="favorite" onclick="setView('favorite')">★ <span id="cntFav"></span></button>
-            <button data-view="untagged" onclick="setView('untagged')" title="캐릭터·내 태그가 둘 다 비어있는 미분류">미분류 <span id="cntUnt"></span></button>
             <button data-view="hidden" onclick="setView('hidden')">숨김 <span id="cntHid"></span></button>
         </div>
+        <div class="filter-chips" id="filterChips">
+            <button class="chip" data-filter="no_char" onclick="toggleFilter('no_char')" title="캐릭터가 안 잡힌 사진만">캐릭터 없음 <span id="cntNoChar"></span></button>
+            <button class="chip" data-filter="no_user" onclick="toggleFilter('no_user')" title="내가 단 태그가 없는 사진만">내 태그 없음 <span id="cntNoUser"></span></button>
+            <button class="chip" data-filter="no_ai" onclick="toggleFilter('no_ai')" title="AI 분석을 안 한 사진만">AI 태그 없음 <span id="cntNoAi"></span></button>
+            <button class="chip chip-clear" id="filterClearBtn" onclick="clearFilters()" style="display:none">초기화</button>
+        </div>
         <div class="header-actions">
-            <button class="icon-action" id="toolbarToggle" title="관리 도구 (폴더 인덱싱 등)" onclick="toggleToolbar()">⋯</button>
-            <button class="icon-action" title="AI 분석 설정 (모델/API 키)" onclick="openSettings()">⚙</button>
-            <button class="icon-action" title="처음 사용 안내" onclick="openGuide()">?</button>
-            <button class="icon-action error-badge" id="errorBadge" title="최근 에러" onclick="togglePopoverMenu('errors')" style="display:none">!</button>
-            <button class="icon-action" title="단축키" onclick="togglePopoverMenu('shortcuts')">⌨</button>
-            <button class="icon-action" title="정보 / 통계" onclick="togglePopoverMenu('info')">ℹ</button>
-            <button class="icon-action dev-only" title="서버 로그 열기" onclick="openLog()">▤</button>
-            <button class="icon-action danger dev-only" title="서버 재시작 (코드 변경 시에만 필요. UI 변경은 Ctrl+F5만으로 됨)" onclick="restartServer()">↻</button>
+            <button class="icon-action" id="toolbarToggle" title="사진 추가 · 정리 도구" onclick="toggleToolbar()">⋯</button>
+            <button class="icon-action" title="AI 설정" onclick="openSettings()">⚙</button>
+            <button class="icon-action" title="사용 안내" onclick="openGuide()">?</button>
+            <button class="icon-action error-badge" id="errorBadge" title="알림" onclick="togglePopoverMenu('errors')" style="display:none">!</button>
+            <button class="icon-action" title="단축키 안내" onclick="togglePopoverMenu('shortcuts')">⌨</button>
+            <button class="icon-action" title="현황 보기" onclick="togglePopoverMenu('info')">ℹ</button>
+            <button class="icon-action dev-only" title="로그 보기" onclick="openLog()">▤</button>
+            <button class="icon-action danger dev-only" title="다시 시작" onclick="restartServer()">↻</button>
         </div>
     </div>
 
@@ -1254,24 +1301,24 @@
     <div class="toolbar" id="toolbar" style="display:none">
         <div class="toolbar-row">
             <input type="text" id="folderInput" placeholder="이미지 폴더 경로">
-            <button id="folderPickBtn" onclick="pickFolder()" title="폴더 선택 창 열기">폴더 고르기</button>
-            <button id="indexBtn" class="primary" onclick="startIndex(false)" title="새로 추가된 이미지만 빠르게 분석 (캐릭터 인식)">새 이미지 추가</button>
+            <button id="folderPickBtn" onclick="pickFolder()" title="컴퓨터에서 폴더 선택">폴더 고르기</button>
+            <button id="indexBtn" class="primary" onclick="startIndex(false)" title="이 폴더의 새 사진들을 등록">새 이미지 추가</button>
         </div>
         <div class="toolbar-row">
-            <button id="backfillBtn" onclick="startBackfill()" title="이미 추가된 이미지 중 캐릭터 인식이 안 된 것들을 분석">캐릭터 인식</button>
-            <button id="aiBtn" onclick="startAIAnalysis()" title="AI로 한국어 태그/설명 생성">AI 분석</button>
-            <button onclick="toggleFolderPanel()">폴더 목록</button>
+            <button id="backfillBtn" onclick="startBackfill()" title="아직 캐릭터를 못 찾은 사진에 한번 더 시도">캐릭터 인식</button>
+            <button id="aiBtn" onclick="startAIAnalysis()" title="AI가 사진을 보고 한국어 태그와 설명을 만듦">AI 분석</button>
+            <button onclick="toggleFolderPanel()" title="등록된 폴더 목록 보기">폴더 목록</button>
             <div class="toolbar-spacer"></div>
-            <button id="maintBtn" onclick="togglePopoverMenu('maint')" title="가끔 쓰는 정리 작업">유지보수 ▾</button>
+            <button id="maintBtn" onclick="togglePopoverMenu('maint')" title="정리 도구 모음">유지보수 ▾</button>
         </div>
     </div>
 
     <div class="popover" id="maintPopover" style="display:none;padding:8px;min-width:200px">
-        <div style="font-size:10px;color:var(--text-muted);padding:6px 12px 8px;line-height:1.4;border-bottom:1px solid var(--border);margin-bottom:6px">실행 직전 DB 자동 백업됨<br>(db_backups/ 폴더, 최근 5개 유지)</div>
-        <button class="maint-item" onclick="closeMaint(); startAutoTranslate()" title="DB에 있는 영어 캐릭터 태그 중 매핑 안 된 것을 AI로 일괄 번역하여 character_aliases.json에 추가">새 캐릭터 자동 번역</button>
-        <button class="maint-item" onclick="closeMaint(); startRelocalize()" title="이름 사전을 다시 읽어 캐릭터 이름 갱신. 수동 편집한 캐릭터 칩은 보존됨">이름 다시 적용</button>
-        <button class="maint-item" onclick="closeMaint(); startDedupeTags()" title="모든 이미지의 중복 태그 일괄 정리 (다리미×30 같은 경우)">중복 태그 정리</button>
-        <button class="maint-item" onclick="closeMaint(); startCleanupLibrary()" title="Eagle 등 이미지 관리 앱 라이브러리(*.library)에서 사본으로 들어간 중복 row 삭제">라이브러리 중복 청소</button>
+        <div style="font-size:10px;color:var(--text-muted);padding:6px 12px 8px;line-height:1.4;border-bottom:1px solid var(--border);margin-bottom:6px">실행 전에 자동으로 백업이 만들어져요</div>
+        <button class="maint-item" onclick="closeMaint(); startAutoTranslate()" title="새로 찾은 영어 캐릭터 이름을 AI가 한국어로 번역해서 등록">새 캐릭터 자동 번역</button>
+        <button class="maint-item" onclick="closeMaint(); startRelocalize()" title="캐릭터 이름 사전을 다시 적용 (직접 단 태그는 유지)">이름 다시 적용</button>
+        <button class="maint-item" onclick="closeMaint(); startDedupeTags()" title="같은 태그가 여러 번 들어간 것을 한 번씩만 남기기">중복 태그 정리</button>
+        <button class="maint-item" onclick="closeMaint(); startCleanupLibrary()" title="같은 사진이 여러 번 등록된 것을 정리">라이브러리 중복 청소</button>
     </div>
 
     <div class="progress" id="progress" style="display:none">
@@ -1337,6 +1384,40 @@ const loadMoreBtn = document.getElementById('loadMore');
 
 let currentMode = 'browse';
 let currentView = 'all';
+const filterFlags = { no_char: false, no_user: false, no_ai: false };
+
+function filterQueryString() {
+    const parts = [];
+    if (filterFlags.no_char) parts.push('no_char=1');
+    if (filterFlags.no_user) parts.push('no_user=1');
+    if (filterFlags.no_ai) parts.push('no_ai=1');
+    return parts.length ? '&' + parts.join('&') : '';
+}
+
+function toggleFilter(name) {
+    filterFlags[name] = !filterFlags[name];
+    updateFilterUI();
+    if (currentMode === 'search' && currentQuery) doSearch();
+    else { currentMode = 'browse'; browseOffset = 0; grid.innerHTML = ''; cardData = []; loadBrowse(); }
+}
+
+function clearFilters() {
+    filterFlags.no_char = filterFlags.no_user = filterFlags.no_ai = false;
+    updateFilterUI();
+    if (currentMode === 'search' && currentQuery) doSearch();
+    else { currentMode = 'browse'; browseOffset = 0; grid.innerHTML = ''; cardData = []; loadBrowse(); }
+}
+
+function updateFilterUI() {
+    let anyActive = false;
+    document.querySelectorAll('.filter-chips .chip[data-filter]').forEach(btn => {
+        const k = btn.dataset.filter;
+        const on = filterFlags[k];
+        btn.classList.toggle('active', on);
+        if (on) anyActive = true;
+    });
+    document.getElementById('filterClearBtn').style.display = anyActive ? '' : 'none';
+}
 let browseOffset = 0;
 let currentQuery = '';
 const PAGE_SIZE = 40;
@@ -1439,8 +1520,10 @@ async function loadCounts() {
         const c = await res.json();
         document.getElementById('cntAll').textContent = c.all;
         document.getElementById('cntFav').textContent = c.favorite;
-        document.getElementById('cntUnt').textContent = c.untagged;
         document.getElementById('cntHid').textContent = c.hidden;
+        document.getElementById('cntNoChar').textContent = c.no_char ?? '';
+        document.getElementById('cntNoUser').textContent = c.no_user ?? '';
+        document.getElementById('cntNoAi').textContent = c.no_ai ?? '';
         document.getElementById('stats') && (document.getElementById('stats').textContent = `${c.all}개`);
     } catch (e) {}
 }
@@ -1483,7 +1566,7 @@ async function doSearch() {
     loadMoreBtn.style.display = 'none';
 
     try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=${PAGE_SIZE}&view=${currentView}`);
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=${PAGE_SIZE}&view=${currentView}${filterQueryString()}`);
         const data = await res.json();
 
         if (data.results.length === 0) {
@@ -1506,7 +1589,7 @@ async function loadRandom() {
     status.textContent = '뽑는 중...';
     loadMoreBtn.style.display = 'none';
     try {
-        const res = await fetch(`/api/random?n=5&view=${currentView}`);
+        const res = await fetch(`/api/random?n=5&view=${currentView}${filterQueryString()}`);
         const data = await res.json();
         if (!res.ok || data.error) { status.textContent = '오류: ' + (data.error || res.statusText); return; }
         if (data.results.length === 0) { status.textContent = '뽑을 이미지가 없습니다.'; return; }
@@ -1521,24 +1604,29 @@ async function loadBrowse() {
     if (browseOffset === 0) status.textContent = '로딩 중...';
 
     try {
-        const res = await fetch(`/api/browse?offset=${browseOffset}&limit=${PAGE_SIZE}&view=${currentView}`);
+        const res = await fetch(`/api/browse?offset=${browseOffset}&limit=${PAGE_SIZE}&view=${currentView}${filterQueryString()}`);
         const data = await res.json();
 
         if (data.results.length === 0 && browseOffset === 0) {
-            const msg = currentView === 'favorite' ? '즐겨찾기한 이미지가 없습니다. 카드의 ★ 버튼으로 추가하세요.'
+            const anyFilter = filterFlags.no_char || filterFlags.no_user || filterFlags.no_ai;
+            const msg = anyFilter ? '필터 조건에 맞는 이미지가 없습니다.'
+                : currentView === 'favorite' ? '즐겨찾기한 이미지가 없습니다. 카드의 ★ 버튼으로 추가하세요.'
                 : currentView === 'hidden' ? '숨김 처리한 이미지가 없습니다.'
-                : currentView === 'untagged' ? '미분류 이미지가 없습니다. 모든 이미지에 캐릭터 또는 내 태그가 달려있어요.'
                 : '아직 추가된 이미지가 없습니다. 위쪽에 폴더 경로를 입력하고 [새 이미지 추가]를 누르세요.';
             status.textContent = msg;
             return;
         }
 
         if (browseOffset === 0) {
-            const label = currentView === 'favorite' ? '즐겨찾기'
+            const baseLabel = currentView === 'favorite' ? '즐겨찾기'
                 : currentView === 'hidden' ? '숨김'
-                : currentView === 'untagged' ? '미분류'
                 : '전체';
-            status.textContent = `${label} ${data.total}개`;
+            const activeChips = [];
+            if (filterFlags.no_char) activeChips.push('캐릭터 없음');
+            if (filterFlags.no_user) activeChips.push('내 태그 없음');
+            if (filterFlags.no_ai) activeChips.push('AI 태그 없음');
+            const filterLabel = activeChips.length ? ` · ${activeChips.join(', ')}` : '';
+            status.textContent = `${baseLabel}${filterLabel} ${data.total}개`;
         }
 
         data.results.forEach(item => grid.appendChild(createCard(item, false)));
@@ -1777,7 +1865,7 @@ async function findSimilar(id) {
     status.textContent = '비슷한 이미지 찾는 중...';
     loadMoreBtn.style.display = 'none';
     try {
-        const res = await fetch(`/api/similar/${id}?limit=${PAGE_SIZE}&view=${currentView}`);
+        const res = await fetch(`/api/similar/${id}?limit=${PAGE_SIZE}&view=${currentView}${filterQueryString()}`);
         const data = await res.json();
         if (!res.ok || data.error) {
             status.textContent = '오류: ' + (data.error || res.statusText);
@@ -2565,7 +2653,7 @@ async function modalToggleFavorite(id, btn) {
 }
 
 function renderUserTagChips(imageId, tags) {
-    return tags.map(t => `<span class="tag user" draggable="true" ondragstart="onTagDragStart(event, ${imageId}, 'user', '${escapeAttr(t)}')" ondblclick="startEditTag(this, ${imageId}, 'user_tags', '${escapeAttr(t)}')" title="더블클릭 편집 / 끌어다 놓으면 캐릭터 또는 AI 태그로"><span class="tag-label">${escapeHTML(t)}</span><span class="tag-x" onclick="removeTagFromField(${imageId}, 'user_tags', '${escapeAttr(t)}', this)" title="제거">×</span></span>`).join('');
+    return tags.map(t => `<span class="tag user" draggable="true" ondragstart="onTagDragStart(event, ${imageId}, 'user', '${escapeAttr(t)}')" ondblclick="startEditTag(this, ${imageId}, 'user_tags', '${escapeAttr(t)}')" title="두 번 누르면 수정 · 다른 색 자리로 끌어가면 이동"><span class="tag-label">${escapeHTML(t)}</span><span class="tag-x" onclick="removeTagFromField(${imageId}, 'user_tags', '${escapeAttr(t)}', this)" title="삭제">×</span></span>`).join('');
 }
 
 function renderCharTagChips(imageId, tags) {

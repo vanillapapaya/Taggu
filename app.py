@@ -399,9 +399,13 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         )
 
     @app.get("/api/random")
-    async def random_images(n: int = Query(5, ge=1, le=50), view: str = Query("all")):
+    async def random_images(
+        n: int = Query(5, ge=1, le=50),
+        view: str = Query("all"),
+        no_char: int = Query(0), no_user: int = Query(0), no_ai: int = Query(0),
+    ):
         conn = get_db()
-        where = _view_filter(view)
+        where = _view_filter(view, bool(no_char), bool(no_user), bool(no_ai))
         rows = conn.execute(
             f"SELECT id, path, filename, tags, description, wd_chars_ko, wd_chars, hidden, favorite, user_tags "
             f"FROM images WHERE {where} ORDER BY RANDOM() LIMIT ?",
@@ -502,24 +506,28 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         return JSONResponse({"error": "no icon"}, status_code=404)
 
 
-    def _view_filter(view: str) -> str:
-        """view 모드 → SQL WHERE 절 (선행 공백 + AND 또는 빈 문자열)."""
+    def _view_filter(view: str, no_char: bool = False, no_user: bool = False, no_ai: bool = False) -> str:
+        """view 모드 + 필터 칩 조합 → SQL WHERE 절."""
         if view == "favorite":
-            return "favorite=1 AND hidden=0"
-        if view == "hidden":
-            return "hidden=1"
-        if view == "untagged":
-            # 캐릭터(wd_chars_ko)도 없고 내 태그(user_tags)도 없는 미분류
-            return ("(wd_chars_ko IS NULL OR wd_chars_ko='') "
-                    "AND (user_tags IS NULL OR user_tags='') "
-                    "AND hidden=0")
-        return "hidden=0"
+            parts = ["favorite=1", "hidden=0"]
+        elif view == "hidden":
+            parts = ["hidden=1"]
+        else:
+            parts = ["hidden=0"]
+        if no_char:
+            parts.append("(wd_chars_ko IS NULL OR wd_chars_ko='')")
+        if no_user:
+            parts.append("(user_tags IS NULL OR user_tags='')")
+        if no_ai:
+            parts.append("(tags IS NULL OR tags='')")
+        return " AND ".join(parts)
 
     @app.get("/api/search")
     async def search(
         q: str = Query(..., min_length=1, description="검색어"),
         limit: int = Query(40, ge=1, le=200, description="결과 수"),
         view: str = Query("all", description="all | favorite | hidden"),
+        no_char: int = Query(0), no_user: int = Query(0), no_ai: int = Query(0),
     ):
         try:
             query_emb = text_to_embedding(q)
@@ -529,10 +537,11 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
 
         try:
             conn = get_db()
+            where = _view_filter(view, bool(no_char), bool(no_user), bool(no_ai))
             rows = conn.execute(
                 f"SELECT id, path, filename, tags, description, clip_embedding, "
                 f"wd_chars, wd_chars_ko, wd_general, hidden, favorite, user_tags "
-                f"FROM images WHERE {_view_filter(view)}"
+                f"FROM images WHERE {where}"
             ).fetchall()
             conn.close()
         except Exception as e:
@@ -585,9 +594,10 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         offset: int = Query(0, ge=0),
         limit: int = Query(40, ge=1, le=200),
         view: str = Query("all", description="all | favorite | hidden"),
+        no_char: int = Query(0), no_user: int = Query(0), no_ai: int = Query(0),
     ):
         conn = get_db()
-        where = _view_filter(view)
+        where = _view_filter(view, bool(no_char), bool(no_user), bool(no_ai))
         rows = conn.execute(
             f"SELECT id, path, filename, tags, description, wd_chars_ko, wd_chars, hidden, favorite, user_tags "
             f"FROM images WHERE {where} ORDER BY favorite DESC, indexed_at DESC LIMIT ? OFFSET ?",
@@ -883,6 +893,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         image_id: int,
         limit: int = Query(40, ge=1, le=200),
         view: str = Query("all"),
+        no_char: int = Query(0), no_user: int = Query(0), no_ai: int = Query(0),
     ):
         conn = get_db()
         target = conn.execute(
@@ -896,7 +907,8 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         rows = conn.execute(
             f"SELECT id, path, filename, tags, description, clip_embedding, "
             f"wd_chars, wd_chars_ko, hidden, favorite, user_tags "
-            f"FROM images WHERE {_view_filter(view)} AND id != ? AND clip_embedding IS NOT NULL",
+            f"FROM images WHERE {_view_filter(view, bool(no_char), bool(no_user), bool(no_ai))} "
+            f"AND id != ? AND clip_embedding IS NOT NULL",
             (image_id,),
         ).fetchall()
         conn.close()
@@ -953,17 +965,17 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
     @app.get("/api/counts")
     async def view_counts():
         conn = get_db()
-        all_n = conn.execute("SELECT COUNT(*) FROM images WHERE hidden=0").fetchone()[0]
-        fav_n = conn.execute("SELECT COUNT(*) FROM images WHERE favorite=1 AND hidden=0").fetchone()[0]
-        hid_n = conn.execute("SELECT COUNT(*) FROM images WHERE hidden=1").fetchone()[0]
-        unt_n = conn.execute(
-            "SELECT COUNT(*) FROM images WHERE "
-            "(wd_chars_ko IS NULL OR wd_chars_ko='') "
-            "AND (user_tags IS NULL OR user_tags='') "
-            "AND hidden=0"
-        ).fetchone()[0]
+        c = lambda sql: conn.execute(sql).fetchone()[0]
+        result = {
+            "all": c("SELECT COUNT(*) FROM images WHERE hidden=0"),
+            "favorite": c("SELECT COUNT(*) FROM images WHERE favorite=1 AND hidden=0"),
+            "hidden": c("SELECT COUNT(*) FROM images WHERE hidden=1"),
+            "no_char": c("SELECT COUNT(*) FROM images WHERE hidden=0 AND (wd_chars_ko IS NULL OR wd_chars_ko='')"),
+            "no_user": c("SELECT COUNT(*) FROM images WHERE hidden=0 AND (user_tags IS NULL OR user_tags='')"),
+            "no_ai": c("SELECT COUNT(*) FROM images WHERE hidden=0 AND (tags IS NULL OR tags='')"),
+        }
         conn.close()
-        return {"all": all_n, "favorite": fav_n, "hidden": hid_n, "untagged": unt_n}
+        return result
 
     @app.post("/api/index")
     async def start_indexing(req: IndexRequest):
