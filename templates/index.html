@@ -154,7 +154,13 @@
         .view-tabs button:hover { color: var(--text-dim); }
         .view-tabs button.active { background: var(--bg-card); color: var(--text); }
 
+        .filter-bar {
+            /* header 안에 있어 자동으로 sticky에 포함됨 — 별도 position 불필요 */
+        }
         .filter-chips {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 8px 28px 10px;
             display: flex;
             gap: 6px;
             align-items: center;
@@ -162,8 +168,6 @@
             overflow-x: auto;
             scrollbar-width: thin;
             scrollbar-color: var(--border) transparent;
-            min-width: 0;
-            padding-bottom: 2px;  /* 스크롤바 자리 */
         }
         .filter-chips::-webkit-scrollbar {
             height: 4px;
@@ -177,6 +181,14 @@
             background: var(--border-strong);
         }
         .filter-chips .chip { flex-shrink: 0; }
+        .filter-chips .filter-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-right: 4px;
+            flex-shrink: 0;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
         .filter-chips .chip {
             padding: 5px 11px;
             background: transparent;
@@ -1271,12 +1283,6 @@
             <button data-view="favorite" onclick="setView('favorite')">★ <span id="cntFav"></span></button>
             <button data-view="hidden" onclick="setView('hidden')">숨김 <span id="cntHid"></span></button>
         </div>
-        <div class="filter-chips" id="filterChips">
-            <button class="chip" data-filter="no_char" onclick="toggleFilter('no_char')" title="캐릭터가 안 잡힌 사진만">캐릭터 없음 <span id="cntNoChar"></span></button>
-            <button class="chip" data-filter="no_user" onclick="toggleFilter('no_user')" title="내가 단 태그가 없는 사진만">내 태그 없음 <span id="cntNoUser"></span></button>
-            <button class="chip" data-filter="no_ai" onclick="toggleFilter('no_ai')" title="AI 분석을 안 한 사진만">AI 태그 없음 <span id="cntNoAi"></span></button>
-            <button class="chip chip-clear" id="filterClearBtn" onclick="clearFilters()" style="display:none">초기화</button>
-        </div>
         <div class="header-actions">
             <button class="icon-action" id="toolbarToggle" title="사진 추가 · 정리 도구" onclick="toggleToolbar()">⋯</button>
             <button class="icon-action" title="AI 설정" onclick="openSettings()">⚙</button>
@@ -1286,6 +1292,16 @@
             <button class="icon-action" title="현황 보기" onclick="togglePopoverMenu('info')">ℹ</button>
             <button class="icon-action dev-only" title="로그 보기" onclick="openLog()">▤</button>
             <button class="icon-action danger dev-only" title="다시 시작" onclick="restartServer()">↻</button>
+        </div>
+    </div>
+
+    <div class="filter-bar" id="filterBar">
+        <div class="filter-chips" id="filterChips">
+            <span class="filter-label">필터</span>
+            <button class="chip" data-filter="no_char" onclick="toggleFilter('no_char')" title="캐릭터가 안 잡힌 사진만">캐릭터 없음 <span id="cntNoChar"></span></button>
+            <button class="chip" data-filter="no_user" onclick="toggleFilter('no_user')" title="내가 단 태그가 없는 사진만">내 태그 없음 <span id="cntNoUser"></span></button>
+            <button class="chip" data-filter="no_ai" onclick="toggleFilter('no_ai')" title="AI 분석을 안 한 사진만">AI 태그 없음 <span id="cntNoAi"></span></button>
+            <button class="chip chip-clear" id="filterClearBtn" onclick="clearFilters()" style="display:none">초기화</button>
         </div>
     </div>
 
