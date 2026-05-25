@@ -158,8 +158,25 @@
             display: flex;
             gap: 6px;
             align-items: center;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
+            min-width: 0;
+            padding-bottom: 2px;  /* 스크롤바 자리 */
         }
+        .filter-chips::-webkit-scrollbar {
+            height: 4px;
+        }
+        .filter-chips::-webkit-scrollbar-track { background: transparent; }
+        .filter-chips::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 2px;
+        }
+        .filter-chips::-webkit-scrollbar-thumb:hover {
+            background: var(--border-strong);
+        }
+        .filter-chips .chip { flex-shrink: 0; }
         .filter-chips .chip {
             padding: 5px 11px;
             background: transparent;
