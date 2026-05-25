@@ -136,6 +136,32 @@ def _is_local_request(request: Request) -> bool:
     return client.host in _LOCAL_IPS
 
 
+def _backup_db(db_path: str, reason: str) -> Optional[str]:
+    """위험한 일괄 변경 직전 DB 스냅샷. 최근 5개만 유지하여 디스크 절약.
+
+    반환: 백업 경로 (성공) / None (실패).
+    """
+    try:
+        src = Path(db_path)
+        if not src.exists():
+            return None
+        backup_dir = src.parent / "db_backups"
+        backup_dir.mkdir(exist_ok=True)
+        ts = time.strftime("%Y%m%d-%H%M%S")
+        dst = backup_dir / f"{src.stem}_{ts}_{reason}.db"
+        import shutil
+        shutil.copy2(src, dst)
+        # 오래된 백업 정리 — 최근 5개만
+        existing = sorted(backup_dir.glob(f"{src.stem}_*.db"), key=lambda p: p.stat().st_mtime, reverse=True)
+        for old in existing[5:]:
+            try: old.unlink()
+            except Exception: pass
+        return str(dst)
+    except Exception:
+        traceback.print_exc()
+        return None
+
+
 def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
     app = FastAPI(title="Yoink")
     templates = Jinja2Templates(directory=str(_bundle_resource("templates")))
@@ -701,6 +727,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         """
         if index_lock.locked():
             return JSONResponse({"error": "다른 작업이 진행 중입니다"}, status_code=409)
+        _backup_db(db_path, "cleanup_library")
         suffixes = (".library", ".eagle", ".aseprite-cache", ".thumbs")
         conn = get_db()
         rows = conn.execute("SELECT id, path FROM images").fetchall()
@@ -720,6 +747,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         """모든 이미지의 tags / wd_chars(_ko) / wd_general / user_tags 중복 정리."""
         if index_lock.locked():
             return JSONResponse({"error": "다른 작업이 진행 중입니다"}, status_code=409)
+        _backup_db(db_path, "dedupe_tags")
         try:
             result = dedupe_all_tags(db_path)
             return {"status": "done", **result}
@@ -731,6 +759,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
     async def do_relocalize():
         if index_lock.locked():
             return JSONResponse({"error": "다른 작업이 진행 중입니다"}, status_code=409)
+        _backup_db(db_path, "relocalize")
         try:
             aliases_state["data"] = wd14_tagger.load_aliases(ALIASES_PATH)
             result = relocalize(db_path, aliases_state["data"], skip_unmapped=True)

@@ -291,20 +291,27 @@ def relocalize(
 ) -> dict:
     """wd_chars(영어) → wd_chars_ko(한국어) 재생성. 이미지 재처리 없이 빠름.
 
+    중요: 사용자가 수동으로 추가/편집한 wd_chars_ko 항목은 보존.
+    새 alias 매핑 결과에 없는 기존 한국어 항목은 사용자가 직접 단 것으로 간주 → 합쳐서 저장.
     매핑 사전(character_aliases.json) 변경 후 호출.
     """
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
-        "SELECT id, wd_chars FROM images WHERE wd_chars IS NOT NULL"
+        "SELECT id, wd_chars, wd_chars_ko FROM images WHERE wd_chars IS NOT NULL OR wd_chars_ko IS NOT NULL"
     ).fetchall()
     updated = 0
     for row in rows:
         chars_en = [t.strip() for t in (row["wd_chars"] or "").split(",") if t.strip()]
-        ko = wd14_tagger.localize_tags(chars_en, aliases, skip_unmapped=skip_unmapped) if chars_en else []
+        new_from_alias = wd14_tagger.localize_tags(chars_en, aliases, skip_unmapped=skip_unmapped) if chars_en else []
+        # alias로 만들어지지 않는 기존 한국어 항목 = 사용자 수동 편집 → 보존
+        old_ko = [t.strip() for t in (row["wd_chars_ko"] or "").split(",") if t.strip()]
+        preserved = [k for k in old_ko if k not in new_from_alias]
+        # 새 매핑 + 사용자 편집 보존 (순서 유지 + 중복 제거)
+        merged = list(dict.fromkeys(new_from_alias + preserved))
         conn.execute(
             "UPDATE images SET wd_chars_ko=? WHERE id=?",
-            (",".join(ko), row["id"]),
+            (",".join(merged), row["id"]),
         )
         updated += 1
     conn.commit()

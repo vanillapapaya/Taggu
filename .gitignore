@@ -39,6 +39,8 @@ Thumbs.db
 
 # DB
 images.db
+images.db.backup-*
+db_backups/
 
 # Runtime artifacts
 server_log.txt
