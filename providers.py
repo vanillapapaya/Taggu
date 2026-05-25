@@ -341,6 +341,98 @@ def settings_for_display(settings: dict) -> dict:
     return out
 
 
+TRANSLATE_CHAR_PROMPT = """다음은 Danbooru 스타일의 영어 캐릭터 태그 목록이다. 각각을 한국어 이름으로 번역해라.
+
+규칙:
+- 일본어/중국어 캐릭터명은 표준 한국어 표기로 (예: hakui_koyori → 하쿠이 코요리)
+- 영문 이름은 한국어 음차 (예: hatsune_miku → 하츠네 미쿠)
+- 언더스코어는 공백으로
+- _(작품명) 같은 접미사는 무시하고 본명만 번역 (예: hakui_koyori_(1st_costume) → 하쿠이 코요리)
+- 모르는 이름이면 해당 키에 null 사용
+- 응답은 JSON 객체 하나로만: {"원본_영어_태그": "한국어 이름", ...}
+- JSON 외에는 아무것도 출력하지 마
+
+태그 목록:
+"""
+
+
+def translate_chars_to_ko(provider, names: list[str], batch_size: int = 40) -> dict[str, str]:
+    """영어 캐릭터 태그 N개를 한국어로 번역해 dict로 반환.
+
+    배치별로 텍스트 호출 (이미지 첨부 X). provider별로 텍스트-only 경로가 달라
+    각자의 analyze() 대신 SDK를 직접 호출.
+    """
+    import json as _json
+    result: dict[str, str] = {}
+    if not names:
+        return result
+    provider.ensure_ready()
+
+    for start in range(0, len(names), batch_size):
+        batch = names[start:start + batch_size]
+        prompt = TRANSLATE_CHAR_PROMPT + "\n".join(batch)
+        try:
+            text = _call_text(provider, prompt)
+            parsed = _parse_translation_json(text, batch)
+            result.update(parsed)
+        except Exception:
+            import traceback
+            traceback.print_exc()
+    return result
+
+
+def _call_text(provider, prompt: str) -> str:
+    """provider 종류에 따라 텍스트 한 번 호출. analyze는 이미지 첨부라 부적합."""
+    name = provider.__class__.__name__
+    if name == "OpenAIProvider":
+        resp = provider._client.chat.completions.create(
+            model=provider.model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=2048,
+        )
+        return resp.choices[0].message.content or ""
+    if name == "AnthropicProvider":
+        resp = provider._client.messages.create(
+            model=provider.model,
+            max_tokens=2048,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
+    if name == "GeminiProvider":
+        resp = provider._client.models.generate_content(model=provider.model, contents=[prompt])
+        return resp.text or ""
+    if name == "LocalQwenProvider":
+        # 로컬 Qwen은 텍스트만 호출도 멀티모달 메시지로 처리
+        import torch
+        messages = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
+        text = provider._processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        inputs = provider._processor(text=[text], return_tensors="pt").to(provider._model.device)
+        with torch.no_grad():
+            output_ids = provider._model.generate(**inputs, max_new_tokens=2048)
+        generated = output_ids[0][inputs.input_ids.shape[1]:]
+        return provider._processor.decode(generated, skip_special_tokens=True).strip()
+    raise RuntimeError(f"알 수 없는 provider: {name}")
+
+
+def _parse_translation_json(text: str, expected_keys: list[str]) -> dict[str, str]:
+    """LLM이 반환한 JSON 텍스트에서 dict 추출. JSON 외 텍스트 섞여 와도 견디게."""
+    import json as _json
+    import re as _re
+    # JSON 블록 추출
+    m = _re.search(r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", text, _re.DOTALL)
+    if not m:
+        return {}
+    try:
+        data = _json.loads(m.group(0))
+    except Exception:
+        return {}
+    out: dict[str, str] = {}
+    for k, v in data.items():
+        if isinstance(v, str) and v.strip():
+            out[k] = v.strip()
+    return out
+
+
 def with_retry(fn, max_attempts: int = 3, base_delay: float = 1.0):
     """rate limit / 일시적 네트워크 에러에 대해 exponential backoff 재시도.
 

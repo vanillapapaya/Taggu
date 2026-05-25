@@ -755,6 +755,107 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
             traceback.print_exc()
             return JSONResponse({"error": str(e)}, status_code=500)
 
+    auto_tx_lock = threading.Lock()
+
+    def run_auto_translate_chars():
+        if not auto_tx_lock.acquire(blocking=False):
+            return
+        try:
+            # 1. DB에서 모든 wd_chars 영어명 수집
+            conn = get_db()
+            rows = conn.execute(
+                "SELECT wd_chars FROM images WHERE wd_chars IS NOT NULL AND wd_chars != ''"
+            ).fetchall()
+            conn.close()
+            all_chars: set[str] = set()
+            for row in rows:
+                for t in (row["wd_chars"] or "").split(","):
+                    t = t.strip().lower()
+                    if t:
+                        all_chars.add(t)
+
+            # 2. 이미 매핑된 것 제외
+            aliases = aliases_state["data"]
+            char_map = aliases.get("characters", {})
+            work_map = aliases.get("_works", {})
+            # _strip_work_suffix용
+            import re as _re
+            suffix_re = _re.compile(r"_\([^()]+\)$")
+            unmapped: list[str] = []
+            for tag in all_chars:
+                clean = suffix_re.sub("", tag)
+                if clean in char_map or tag in char_map or tag in work_map or clean in work_map:
+                    continue
+                unmapped.append(tag)
+
+            total = len(unmapped)
+            _reset_progress("(자동 캐릭터 번역)", f"{total}개 미매핑 캐릭터 번역 준비 중...")
+            index_state["status"] = "running"
+            index_state["total"] = total
+
+            if total == 0:
+                index_state["status"] = "done"
+                index_state["finished_at"] = time.time()
+                index_state["message"] = "번역할 새 캐릭터 없음"
+                return
+
+            # 3. 현재 provider로 번역 (analyze가 아닌 텍스트 호출 경로)
+            provider = get_vlm_provider()
+            provider.ensure_ready()
+
+            translations: dict[str, str] = {}
+            batch = 40
+            for i in range(0, total, batch):
+                chunk = unmapped[i:i + batch]
+                index_state["current"] = min(i + batch, total)
+                index_state["current_file"] = f"{chunk[0]} … 외 {len(chunk)-1}개"
+                try:
+                    result = providers.translate_chars_to_ko(provider, chunk, batch_size=batch)
+                    translations.update(result)
+                except Exception as e:
+                    index_state["last_error"] = str(e)
+                    traceback.print_exc()
+
+            # 4. character_aliases.json에 머지 저장 (clean key 기준)
+            with open(ALIASES_PATH, "r", encoding="utf-8") as f:
+                raw = __import__("json").load(f)
+            chars_section = raw.get("characters", {})
+            added = 0
+            for en_tag, ko in translations.items():
+                if not ko or ko == "null":
+                    continue
+                clean = suffix_re.sub("", en_tag)
+                if clean not in chars_section:
+                    chars_section[clean] = ko
+                    added += 1
+            raw["characters"] = chars_section
+            with open(ALIASES_PATH, "w", encoding="utf-8") as f:
+                __import__("json").dump(raw, f, ensure_ascii=False, indent=2)
+
+            # 5. aliases 메모리 갱신 + DB 재매핑 (사용자 편집은 보존되는 새 relocalize 사용)
+            aliases_state["data"] = wd14_tagger.load_aliases(ALIASES_PATH)
+            _backup_db(db_path, "auto_translate")
+            relocalize(db_path, aliases_state["data"], skip_unmapped=True)
+
+            index_state["status"] = "done"
+            index_state["finished_at"] = time.time()
+            index_state["message"] = f"자동 번역 완료 — {added}개 캐릭터 추가, DB 재매핑 완료"
+        except Exception as e:
+            traceback.print_exc()
+            index_state["status"] = "error"
+            index_state["message"] = str(e)
+            index_state["finished_at"] = time.time()
+        finally:
+            auto_tx_lock.release()
+
+    @app.post("/api/auto_translate_chars")
+    async def start_auto_translate():
+        if index_lock.locked() or auto_tx_lock.locked():
+            return JSONResponse({"error": "다른 작업이 진행 중입니다"}, status_code=409)
+        thread = threading.Thread(target=run_auto_translate_chars, daemon=True)
+        thread.start()
+        return {"status": "started"}
+
     @app.post("/api/relocalize")
     async def do_relocalize():
         if index_lock.locked():
