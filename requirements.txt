@@ -17,6 +17,10 @@ openai
 anthropic
 google-genai
 
+# WD14 (캐릭터 태깅) + CCIP (캐릭터 학습 임베딩) — 둘 다 ONNX 추론
+onnxruntime
+huggingface_hub
+
 # Image
 Pillow
 

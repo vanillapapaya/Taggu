@@ -27,7 +27,9 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 import wd14_tagger
+import ccip_tagger
 from index import (
+    backfill_ccip,
     backfill_vlm,
     backfill_wd14,
     dedupe_all_tags,
@@ -193,6 +195,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
 
     # WD14는 lazy load (첫 캐릭터 인식 시 ~15-20초 추가 대기, 그 후엔 메모리 유지)
     wd14_state = {"model": None}
+    ccip_state = {"model": None}
 
     # VLM provider — 설정에 따라 로컬 / OpenAI / Anthropic / Gemini 중 하나
     settings_path = Path(__file__).parent / "settings.json"
@@ -203,6 +206,12 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
             index_state["message"] = "캐릭터 인식 모델 준비 중... (~15-20초, 첫 1회만)"
             wd14_state["model"] = wd14_tagger.load_wd14()
         return wd14_state["model"]
+
+    def ensure_ccip():
+        if ccip_state["model"] is None:
+            index_state["message"] = "캐릭터 학습 모델 준비 중... (~10초, 첫 1회만)"
+            ccip_state["model"] = ccip_tagger.load_ccip()
+        return ccip_state["model"]
 
     def get_vlm_provider():
         """현재 설정으로 provider 인스턴스 보장. 설정 변경 시 invalidate_vlm_provider 호출."""
@@ -321,6 +330,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
             _reset_progress(folder_path, " · ".join(msg_parts))
 
             wd14 = ensure_wd14()
+            ccip = ensure_ccip()
 
             provider = get_vlm_provider() if with_ai else None
             if provider is not None:
@@ -341,6 +351,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
                 wd14=wd14,
                 aliases=aliases_state["data"],
                 use_vlm=with_ai,
+                ccip=ccip,
             )
 
             index_state["status"] = "done"
@@ -634,9 +645,49 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         conn.close()
         return {"id": row["id"], "hidden": bool(row["hidden"]), "favorite": bool(row["favorite"])}
 
+    def _learn_chars(conn, image_id: int, new_char_names: list[str]) -> int:
+        """이미지의 ccip_embedding을 주어진 캐릭터들의 centroid에 online mean으로 누적.
+
+        반환: 학습된 캐릭터 수.
+        """
+        if not new_char_names:
+            return 0
+        row = conn.execute("SELECT ccip_embedding FROM images WHERE id=?", (image_id,)).fetchone()
+        if not row or not row["ccip_embedding"]:
+            return 0  # ccip 임베딩 없으면 학습 불가 (backfill 안 한 이미지)
+        emb = np.frombuffer(row["ccip_embedding"], dtype=np.float32)
+        learned = 0
+        for name in new_char_names:
+            name = name.strip()
+            if not name:
+                continue
+            proto = conn.execute(
+                "SELECT centroid, count FROM char_prototypes WHERE name=?", (name,)
+            ).fetchone()
+            if proto is None:
+                new_centroid = emb  # 첫 라벨 — 임베딩 자체가 centroid (이미 L2 normalized)
+                new_count = 1
+            else:
+                old = np.frombuffer(proto["centroid"], dtype=np.float32)
+                new_centroid = (old * proto["count"] + emb) / (proto["count"] + 1)
+                norm = float(np.linalg.norm(new_centroid))
+                if norm > 0:
+                    new_centroid = new_centroid / norm
+                new_count = proto["count"] + 1
+            conn.execute(
+                "INSERT OR REPLACE INTO char_prototypes (name, centroid, count, updated_at) "
+                "VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
+                (name, new_centroid.astype(np.float32).tobytes(), new_count),
+            )
+            learned += 1
+        return learned
+
     @app.post("/api/image/{image_id}/field_tags")
     async def set_field_tags(image_id: int, req: FieldTagsRequest):
-        """임의의 태그 필드(user_tags/wd_chars_ko/tags/wd_general) 갱신 + dedupe."""
+        """임의의 태그 필드(user_tags/wd_chars_ko/tags/wd_general) 갱신 + dedupe.
+
+        wd_chars_ko 변경 시: 새로 추가된 캐릭터 이름을 centroid에 자동 학습.
+        """
         allowed = {"user_tags", "wd_chars_ko", "tags", "wd_general"}
         if req.field not in allowed:
             return JSONResponse({"error": "허용되지 않는 필드"}, status_code=400)
@@ -655,9 +706,18 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         else:
             joined = ", ".join(cleaned)
         conn = get_db()
+        # 학습 hook 위해 변경 전 값 보관
+        added: list[str] = []
+        if req.field == "wd_chars_ko":
+            old_row = conn.execute("SELECT wd_chars_ko FROM images WHERE id=?", (image_id,)).fetchone()
+            if old_row:
+                old_set = {t.strip() for t in (old_row["wd_chars_ko"] or "").split(",") if t.strip()}
+                added = [n for n in cleaned if n not in old_set]
         cur = conn.execute(
             f"UPDATE images SET {req.field}=? WHERE id=?", (joined, image_id)
         )
+        if added:
+            _learn_chars(conn, image_id, added)
         conn.commit()
         if cur.rowcount == 0:
             conn.close()
@@ -677,6 +737,43 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
             return JSONResponse({"error": "이미지 없음"}, status_code=404)
         conn.close()
         return {"id": image_id, "user_tags": joined, "tags": cleaned}
+
+    @app.get("/api/image/{image_id}/suggest_chars")
+    async def suggest_chars(image_id: int, min_score: float = Query(0.70, ge=0.0, le=1.0), limit: int = Query(8, ge=1, le=20)):
+        """이미지의 ccip_embedding과 모든 캐릭터 centroid cosine 비교 → 상위 후보.
+
+        반환: {candidates: [{name, score, count}, ...], already: [list of wd_chars_ko], threshold: ...}
+        """
+        conn = get_db()
+        row = conn.execute(
+            "SELECT ccip_embedding, wd_chars_ko FROM images WHERE id=?", (image_id,)
+        ).fetchone()
+        if not row:
+            conn.close()
+            return JSONResponse({"error": "이미지 없음"}, status_code=404)
+
+        already = [t.strip() for t in (row["wd_chars_ko"] or "").split(",") if t.strip()]
+
+        if not row["ccip_embedding"]:
+            conn.close()
+            return {"candidates": [], "already": already, "threshold": min_score,
+                    "note": "CCIP 임베딩이 없는 이미지입니다 (유지보수 → 기존 사진 학습 준비 실행 필요)"}
+
+        emb = np.frombuffer(row["ccip_embedding"], dtype=np.float32)
+        protos = conn.execute("SELECT name, centroid, count FROM char_prototypes").fetchall()
+        conn.close()
+
+        candidates = []
+        for p in protos:
+            if p["name"] in already:
+                continue  # 이미 단 캐릭터는 추천 X
+            c = np.frombuffer(p["centroid"], dtype=np.float32)
+            score = float(np.dot(emb, c))
+            if score >= min_score:
+                candidates.append({"name": p["name"], "score": round(score, 3), "count": p["count"]})
+        candidates.sort(key=lambda x: -x["score"])
+        candidates = candidates[:limit]
+        return {"candidates": candidates, "already": already, "threshold": min_score}
 
     @app.post("/api/image/{image_id}/move_tag")
     async def move_tag(image_id: int, req: MoveTagRequest):
@@ -724,6 +821,9 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
             f"UPDATE images SET {src_field}=?, {dst_field}=? WHERE id=?",
             (_join(src_field), _join(dst_field), image_id),
         )
+        # 학습 hook: target이 char(wd_chars_ko)이면 새로 추가된 캐릭터를 centroid에 누적
+        if req.target == "char":
+            _learn_chars(conn, image_id, [tag])
         conn.commit()
         conn.close()
         return {
@@ -1110,6 +1210,35 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         if index_lock.locked():
             return JSONResponse({"error": "이미 다른 작업이 진행 중입니다"}, status_code=409)
         thread = threading.Thread(target=run_backfill, daemon=True)
+        thread.start()
+        return {"status": "started"}
+
+    def run_backfill_ccip():
+        if not index_lock.acquire(blocking=False):
+            return
+        try:
+            ccip = ensure_ccip()
+            _reset_progress("(캐릭터 학습 임베딩 채우기)", "")
+            index_state["status"] = "running"
+            backfill_ccip(db_path, ccip, progress=index_state)
+            index_state["status"] = "done"
+            index_state["finished_at"] = time.time()
+            index_state["message"] = (
+                f"CCIP 임베딩 완료 (성공 {index_state['success']}, 오류 {index_state['errors']})"
+            )
+        except Exception as e:
+            traceback.print_exc()
+            index_state["status"] = "error"
+            index_state["message"] = str(e)
+            index_state["finished_at"] = time.time()
+        finally:
+            index_lock.release()
+
+    @app.post("/api/backfill_ccip")
+    async def start_backfill_ccip():
+        if index_lock.locked():
+            return JSONResponse({"error": "이미 다른 작업이 진행 중입니다"}, status_code=409)
+        thread = threading.Thread(target=run_backfill_ccip, daemon=True)
         thread.start()
         return {"status": "started"}
 

@@ -977,6 +977,51 @@
         .tag-editor {
             margin: 12px 0 14px;
         }
+
+        .char-suggest {
+            padding: 8px 10px;
+            background: rgba(255,221,136,0.06);
+            border: 1px dashed var(--border-strong);
+            border-radius: var(--radius-sm);
+        }
+        .char-suggest-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .char-suggest-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .suggest-chip {
+            background: var(--bg-elev);
+            color: var(--char);
+            border: 1px solid var(--char-bg);
+            padding: 3px 9px;
+            border-radius: var(--radius-pill);
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            font-family: inherit;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: background 0.12s, border-color 0.12s, transform 0.1s;
+        }
+        .suggest-chip:hover {
+            background: var(--char-bg);
+            border-color: var(--char);
+        }
+        .suggest-chip:active { transform: scale(0.95); }
+        .suggest-chip:disabled { opacity: 0.5; cursor: default; }
+        .suggest-chip .suggest-pct {
+            font-size: 9px;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
         .tag-editor-label {
             font-size: 11px;
             color: var(--text-muted);
@@ -1394,6 +1439,7 @@
 
     <div class="popover" id="maintPopover" style="display:none;padding:8px;min-width:200px">
         <div style="font-size:10px;color:var(--text-muted);padding:6px 12px 8px;line-height:1.4;border-bottom:1px solid var(--border);margin-bottom:6px">실행 전에 자동으로 백업이 만들어져요</div>
+        <button class="maint-item" onclick="closeMaint(); startBackfillCcip()" title="기존 사진에 캐릭터 학습용 임베딩 채우기 (한 번만 실행)">기존 사진 학습 준비</button>
         <button class="maint-item" onclick="closeMaint(); startAutoTranslate()" title="새로 찾은 영어 캐릭터 이름을 AI가 한국어로 번역해서 등록">새 캐릭터 자동 번역</button>
         <button class="maint-item" onclick="closeMaint(); startRelocalize()" title="캐릭터 이름 사전을 다시 적용 (직접 단 태그는 유지)">이름 다시 적용</button>
         <button class="maint-item" onclick="closeMaint(); startDedupeTags()" title="같은 태그가 여러 번 들어간 것을 한 번씩만 남기기">중복 태그 정리</button>
@@ -1929,8 +1975,9 @@ function renderModalBody(item) {
         </div>
         <button class="modal-action-btn" style="width:100%;margin-bottom:14px" onclick="findSimilar(${item.id})">≈ 비슷한 이미지 찾기</button>
         <div class="tag-editor-label">캐릭터</div>
-        <div class="card-tags" id="charTagsBox" data-drop-zone="char" style="margin-bottom:10px"
+        <div class="card-tags" id="charTagsBox" data-drop-zone="char" style="margin-bottom:6px"
              ondragover="onTagDragOver(event)" ondragleave="onTagDragLeave(event)" ondrop="onTagDrop(event, 'char')">${charHTML}</div>
+        <div id="charSuggestBox" class="char-suggest" style="margin-bottom:10px;display:none"></div>
         <div class="tag-editor">
             <div class="tag-editor-label">내 태그</div>
             <div class="card-tags" id="userTagsBox" data-drop-zone="user"
@@ -1956,6 +2003,59 @@ function renderModalBody(item) {
         }
     }, 0);
     updateModalNavState();
+    loadCharSuggestions(item.id);
+}
+
+async function loadCharSuggestions(imageId) {
+    const box = document.getElementById('charSuggestBox');
+    if (!box) return;
+    box.style.display = 'none';
+    box.innerHTML = '';
+    try {
+        const res = await fetch(`/api/image/${imageId}/suggest_chars?min_score=0.70`);
+        const data = await res.json();
+        if (!res.ok) return;
+        const cands = data.candidates || [];
+        if (cands.length === 0) return;
+        box.innerHTML = `
+            <div class="char-suggest-label">추천 (학습된 캐릭터)</div>
+            <div class="char-suggest-chips">
+                ${cands.map(c => {
+                    const pct = Math.round(c.score * 100);
+                    return `<button class="suggest-chip" onclick="acceptSuggestion(${imageId}, '${escapeAttr(c.name)}', this)" title="${pct}% 일치 · ${c.count}장 학습">
+                        ${escapeHTML(c.name)} <span class="suggest-pct">${pct}%</span>
+                    </button>`;
+                }).join('')}
+            </div>
+        `;
+        box.style.display = '';
+    } catch (e) { /* silent — 추천은 부가기능 */ }
+}
+
+async function acceptSuggestion(imageId, name, btn) {
+    btn.disabled = true;
+    // 현재 wd_chars_ko 가져와서 추가
+    const item = cardData.find(d => d.id === imageId);
+    if (!item) return;
+    const current = parseTags(item.wd_chars_ko || '');
+    if (current.includes(name)) { btn.remove(); return; }
+    const next = [...current, name];
+    try {
+        const res = await fetch(`/api/image/${imageId}/field_tags`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({field: 'wd_chars_ko', tags: next}),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+        // cardData 갱신 + 모달/카드 동기화
+        const idx = cardData.findIndex(d => d.id === imageId);
+        if (idx >= 0) cardData[idx].wd_chars_ko = data.tags.join(', ');
+        renderModalBody(cardData[idx]);
+    } catch (e) {
+        alert('실패: ' + e.message);
+        btn.disabled = false;
+    }
 }
 
 function closeModal(e) {
@@ -2674,6 +2774,18 @@ async function startAIAnalysis() {
         pollProgress();
     } catch (e) {
         alert('요청 실패: ' + e.message);
+    }
+}
+
+async function startBackfillCcip() {
+    if (!confirm('기존 사진에 캐릭터 학습용 임베딩을 채웁니다.\n장당 약 0.1초 (1000장이면 ~2분).\n한 번만 하면 다음부턴 자동.\n\n진행할까요?')) return;
+    try {
+        const res = await fetch('/api/backfill_ccip', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok || data.error) { alert('오류: ' + (data.error || res.statusText)); return; }
+        pollProgress();
+    } catch (e) {
+        alert('실패: ' + e.message);
     }
 }
 

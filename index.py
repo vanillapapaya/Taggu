@@ -30,6 +30,7 @@ import torch
 from PIL import Image
 
 import wd14_tagger
+import ccip_tagger
 import providers
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
@@ -48,6 +49,7 @@ _MIGRATIONS: list[tuple[str, str]] = [
     ("hidden", "INTEGER DEFAULT 0"),
     ("favorite", "INTEGER DEFAULT 0"),
     ("user_tags", "TEXT"),
+    ("ccip_embedding", "BLOB"),  # 캐릭터 동일성 임베딩 (CCIP 768d float32)
 ]
 
 
@@ -78,6 +80,15 @@ def init_db(db_path: str) -> sqlite3.Connection:
                 path TEXT UNIQUE NOT NULL,
                 added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_indexed_at TIMESTAMP
+            )
+        """)
+        # 캐릭터별 prototype (centroid) — 사용자 라벨 누적으로 자동 학습
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS char_prototypes (
+                name TEXT PRIMARY KEY,
+                centroid BLOB NOT NULL,
+                count INTEGER NOT NULL DEFAULT 0,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
         cols = {row["name"] for row in conn.execute("PRAGMA table_info(images)")}
@@ -341,6 +352,7 @@ def index_folder(
     wd14: Optional[dict] = None,
     aliases: Optional[dict] = None,
     use_vlm: bool = True,
+    ccip: Optional[dict] = None,
 ) -> dict:
     """폴더 incremental 인덱싱.
 
@@ -399,11 +411,17 @@ def index_folder(
                 tags, description = "", ""
             embedding = generate_embedding(image_path, clip_model, clip_preprocess, device)
             wd_chars_str, wd_chars_ko_str, wd_general_str = _wd14_for_image(image_path, wd14, aliases)
+            ccip_blob = None
+            if ccip is not None:
+                try:
+                    ccip_blob = ccip_tagger.embed(image_path, ccip).tobytes()
+                except Exception:
+                    ccip_blob = None
             conn.execute(
                 """
                 INSERT INTO images (path, filename, tags, description, clip_embedding, mtime, folder_id,
-                                    wd_chars, wd_chars_ko, wd_general)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    wd_chars, wd_chars_ko, wd_general, ccip_embedding)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(path) DO UPDATE SET
                     filename=excluded.filename,
                     tags=excluded.tags,
@@ -414,10 +432,11 @@ def index_folder(
                     wd_chars=excluded.wd_chars,
                     wd_chars_ko=excluded.wd_chars_ko,
                     wd_general=excluded.wd_general,
+                    ccip_embedding=excluded.ccip_embedding,
                     indexed_at=CURRENT_TIMESTAMP
                 """,
                 (resolved, image_path.name, tags, description, embedding.tobytes(), mtime, folder_id,
-                 wd_chars_str, wd_chars_ko_str, wd_general_str),
+                 wd_chars_str, wd_chars_ko_str, wd_general_str, ccip_blob),
             )
             conn.commit()
             if progress is not None:
@@ -446,6 +465,54 @@ def index_folder(
         "success": progress["success"] if progress is not None else 0,
         "errors": progress["errors"] if progress is not None else 0,
     }
+
+
+def backfill_ccip(
+    db_path: str,
+    ccip: dict,
+    progress: Optional[dict] = None,
+) -> dict:
+    """ccip_embedding이 NULL인 모든 이미지에 CCIP 임베딩만 추가."""
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(
+        "SELECT id, path, filename FROM images WHERE ccip_embedding IS NULL"
+    ).fetchall()
+
+    if progress is not None:
+        progress["total"] = len(rows)
+        progress["current"] = 0
+        progress["success"] = 0
+        progress["errors"] = 0
+        progress["skipped"] = 0
+        progress["last_error"] = ""
+        progress["current_file"] = ""
+
+    for i, row in enumerate(rows, 1):
+        path = Path(row["path"])
+        if progress is not None:
+            progress["current"] = i
+            progress["current_file"] = row["filename"] or path.name
+        if not path.exists():
+            if progress is not None:
+                progress["errors"] += 1
+            continue
+        try:
+            emb = ccip_tagger.embed(path, ccip)
+            conn.execute(
+                "UPDATE images SET ccip_embedding=? WHERE id=?",
+                (emb.tobytes(), row["id"]),
+            )
+            conn.commit()
+            if progress is not None:
+                progress["success"] += 1
+        except Exception as e:
+            if progress is not None:
+                progress["errors"] += 1
+                progress["last_error"] = f"{path.name}: {e}"
+
+    conn.close()
+    return {"processed": len(rows)}
 
 
 def backfill_wd14(
