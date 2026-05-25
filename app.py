@@ -508,6 +508,11 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
             return "favorite=1 AND hidden=0"
         if view == "hidden":
             return "hidden=1"
+        if view == "untagged":
+            # 캐릭터(wd_chars_ko)도 없고 내 태그(user_tags)도 없는 미분류
+            return ("(wd_chars_ko IS NULL OR wd_chars_ko='') "
+                    "AND (user_tags IS NULL OR user_tags='') "
+                    "AND hidden=0")
         return "hidden=0"
 
     @app.get("/api/search")
@@ -951,8 +956,14 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         all_n = conn.execute("SELECT COUNT(*) FROM images WHERE hidden=0").fetchone()[0]
         fav_n = conn.execute("SELECT COUNT(*) FROM images WHERE favorite=1 AND hidden=0").fetchone()[0]
         hid_n = conn.execute("SELECT COUNT(*) FROM images WHERE hidden=1").fetchone()[0]
+        unt_n = conn.execute(
+            "SELECT COUNT(*) FROM images WHERE "
+            "(wd_chars_ko IS NULL OR wd_chars_ko='') "
+            "AND (user_tags IS NULL OR user_tags='') "
+            "AND hidden=0"
+        ).fetchone()[0]
         conn.close()
-        return {"all": all_n, "favorite": fav_n, "hidden": hid_n}
+        return {"all": all_n, "favorite": fav_n, "hidden": hid_n, "untagged": unt_n}
 
     @app.post("/api/index")
     async def start_indexing(req: IndexRequest):
@@ -1127,6 +1138,51 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
 
     THUMB_DIR = Path("thumbnails")
     THUMB_SIZE = 480  # 카드 그리드는 240px 표시, retina 대비 2x
+    THUMB_MAX_FRAMES = 60  # 너무 긴 GIF는 프레임 캡 (인코딩 시간 보호)
+
+    def _make_thumbnail(src: Path, cache: Path) -> bool:
+        """src를 thumb_size 이내로 리사이즈해 cache에 WebP 저장.
+
+        애니메이션(GIF/animated WebP)이면 애니메이티드 WebP로 변환 — 움직임 유지하며
+        해상도/품질 다운으로 용량 감소 (GIF 대비 30~70%).
+        실패 시 False 반환 → caller가 원본 fallback.
+        """
+        from PIL import Image as PILImage
+        try:
+            img = PILImage.open(src)
+            n_frames = getattr(img, "n_frames", 1)
+            is_animated = n_frames > 1
+
+            if is_animated:
+                frames = []
+                durations = []
+                frame_count = min(n_frames, THUMB_MAX_FRAMES)
+                for i in range(frame_count):
+                    img.seek(i)
+                    frame = img.copy()
+                    if frame.mode not in ("RGB", "RGBA"):
+                        frame = frame.convert("RGBA")
+                    frame.thumbnail((THUMB_SIZE, THUMB_SIZE), PILImage.LANCZOS)
+                    frames.append(frame)
+                    durations.append(img.info.get("duration", 100))
+                frames[0].save(
+                    cache, "WEBP",
+                    save_all=True,
+                    append_images=frames[1:],
+                    duration=durations,
+                    loop=img.info.get("loop", 0),
+                    quality=75,
+                    method=4,
+                )
+            else:
+                img.thumbnail((THUMB_SIZE, THUMB_SIZE), PILImage.LANCZOS)
+                if img.mode not in ("RGB", "RGBA"):
+                    img = img.convert("RGB")
+                img.save(cache, "WEBP", quality=80, method=4)
+            return True
+        except Exception:
+            traceback.print_exc()
+            return False
 
     @app.get("/thumbs/{image_id}")
     async def serve_thumbnail(image_id: int):
@@ -1145,16 +1201,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         cache = THUMB_DIR / f"{image_id}_{mtime_int}_{THUMB_SIZE}.webp"
 
         if not cache.exists():
-            try:
-                from PIL import Image as PILImage
-                img = PILImage.open(src)
-                # GIF 등 애니메이션은 첫 프레임만 (정적 썸네일)
-                img.thumbnail((THUMB_SIZE, THUMB_SIZE), PILImage.LANCZOS)
-                if img.mode not in ("RGB", "RGBA"):
-                    img = img.convert("RGB")
-                img.save(cache, "WEBP", quality=80, method=4)
-            except Exception as e:
-                # 썸네일 생성 실패 시 원본 fallback
+            if not _make_thumbnail(src, cache):
                 return FileResponse(str(src))
 
         return FileResponse(str(cache), media_type="image/webp")

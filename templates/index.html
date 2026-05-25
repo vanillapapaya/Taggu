@@ -1210,6 +1210,7 @@
         <div class="view-tabs" id="viewTabs">
             <button class="active" data-view="all" onclick="setView('all')">전체 <span id="cntAll"></span></button>
             <button data-view="favorite" onclick="setView('favorite')">★ <span id="cntFav"></span></button>
+            <button data-view="untagged" onclick="setView('untagged')" title="캐릭터·내 태그가 둘 다 비어있는 미분류">미분류 <span id="cntUnt"></span></button>
             <button data-view="hidden" onclick="setView('hidden')">숨김 <span id="cntHid"></span></button>
         </div>
         <div class="header-actions">
@@ -1438,6 +1439,7 @@ async function loadCounts() {
         const c = await res.json();
         document.getElementById('cntAll').textContent = c.all;
         document.getElementById('cntFav').textContent = c.favorite;
+        document.getElementById('cntUnt').textContent = c.untagged;
         document.getElementById('cntHid').textContent = c.hidden;
         document.getElementById('stats') && (document.getElementById('stats').textContent = `${c.all}개`);
     } catch (e) {}
@@ -1525,13 +1527,17 @@ async function loadBrowse() {
         if (data.results.length === 0 && browseOffset === 0) {
             const msg = currentView === 'favorite' ? '즐겨찾기한 이미지가 없습니다. 카드의 ★ 버튼으로 추가하세요.'
                 : currentView === 'hidden' ? '숨김 처리한 이미지가 없습니다.'
+                : currentView === 'untagged' ? '미분류 이미지가 없습니다. 모든 이미지에 캐릭터 또는 내 태그가 달려있어요.'
                 : '아직 추가된 이미지가 없습니다. 위쪽에 폴더 경로를 입력하고 [새 이미지 추가]를 누르세요.';
             status.textContent = msg;
             return;
         }
 
         if (browseOffset === 0) {
-            const label = currentView === 'favorite' ? '즐겨찾기' : currentView === 'hidden' ? '숨김' : '전체';
+            const label = currentView === 'favorite' ? '즐겨찾기'
+                : currentView === 'hidden' ? '숨김'
+                : currentView === 'untagged' ? '미분류'
+                : '전체';
             status.textContent = `${label} ${data.total}개`;
         }
 
