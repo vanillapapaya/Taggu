@@ -511,7 +511,7 @@ uv pip install -r requirements.txt pyinstaller
   "local": {"model_key": "qwen2.5-vl-7b-bnb4", "device": "cuda"},
   "openai": {"api_key": "sk-...", "model": "gpt-4o-mini"},
   "anthropic": {"api_key": "sk-ant-...", "model": "claude-haiku-4-5"},
-  "gemini": {"api_key": "AIza...", "model": "gemini-2.0-flash"}
+  "gemini": {"api_key": "AIza...", "model": "gemini-2.5-flash"}
 }
 ```
 

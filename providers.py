@@ -234,11 +234,11 @@ class AnthropicProvider:
 
 # ───────────────────── Gemini ─────────────────────
 
-GEMINI_MODELS = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro"]
+GEMINI_MODELS = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro"]
 
 
 class GeminiProvider:
-    def __init__(self, api_key: str, model: str = "gemini-2.0-flash"):
+    def __init__(self, api_key: str, model: str = "gemini-2.5-flash"):
         if not api_key:
             raise ValueError("Gemini API 키 필요")
         self.api_key = api_key
@@ -295,16 +295,31 @@ def make_provider(settings: dict) -> VLMProvider:
         return AnthropicProvider(api_key=cfg.get("api_key", ""), model=cfg.get("model", "claude-haiku-4-5"))
     if kind == "gemini":
         cfg = settings.get("gemini", {})
-        return GeminiProvider(api_key=cfg.get("api_key", ""), model=cfg.get("model", "gemini-2.0-flash"))
+        return GeminiProvider(api_key=cfg.get("api_key", ""), model=cfg.get("model", "gemini-2.5-flash"))
     raise ValueError(f"알 수 없는 provider: {kind}")
 
 
 # ───────────────────── 설정 영속화 ─────────────────────
 
+_DEPRECATED_MODEL_MAP = {
+    # Gemini 2.0 라인은 신규 사용자에게 더 이상 제공 안 됨 — 2.5로 자동 마이그레이션
+    "gemini-2.0-flash": "gemini-2.5-flash",
+    "gemini-2.0-flash-lite": "gemini-2.5-flash-lite",
+}
+
+
 def load_settings(path: Path) -> dict:
     if path.exists():
         try:
-            return json.loads(path.read_text(encoding="utf-8"))
+            data = json.loads(path.read_text(encoding="utf-8"))
+            # deprecated 모델 자동 마이그레이션
+            for provider_key in ("openai", "anthropic", "gemini"):
+                cfg = data.get(provider_key) or {}
+                old = cfg.get("model")
+                if old in _DEPRECATED_MODEL_MAP:
+                    cfg["model"] = _DEPRECATED_MODEL_MAP[old]
+                    data[provider_key] = cfg
+            return data
         except Exception:
             pass
     # 첫 실행 — VRAM 감지해서 적절한 디폴트 추천
@@ -315,7 +330,7 @@ def load_settings(path: Path) -> dict:
             "provider": "openai",
             "openai": {"api_key": "", "model": "gpt-4o-mini"},
             "anthropic": {"api_key": "", "model": "claude-haiku-4-5"},
-            "gemini": {"api_key": "", "model": "gemini-2.0-flash"},
+            "gemini": {"api_key": "", "model": "gemini-2.5-flash"},
         }
     if vram < 8:
         default_model = "qwen2.5-vl-7b-bnb4"  # 6GB
