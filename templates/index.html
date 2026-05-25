@@ -156,6 +156,49 @@
 
         .filter-bar {
             /* header 안에 있어 자동으로 sticky에 포함됨 — 별도 position 불필요 */
+            border-top: 1px solid var(--border);
+        }
+        .filter-bar.collapsed { display: none; }
+
+        .filter-toggle {
+            padding: 5px 12px;
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-pill);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            transition: background 0.12s, color 0.12s, border-color 0.12s;
+        }
+        .filter-toggle:hover {
+            color: var(--text);
+            border-color: var(--border-strong);
+        }
+        .filter-toggle.has-active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--accent-text);
+        }
+        .filter-toggle-count {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 1px 6px;
+            background: var(--bg);
+            color: var(--text);
+            border-radius: 10px;
+            min-width: 14px;
+            text-align: center;
+            line-height: 1.4;
+        }
+        .filter-toggle.has-active .filter-toggle-count {
+            background: rgba(0,0,0,0.2);
+            color: var(--accent-text);
         }
         .filter-chips {
             max-width: 1400px;
@@ -1283,6 +1326,9 @@
             <button data-view="favorite" onclick="setView('favorite')">★ <span id="cntFav"></span></button>
             <button data-view="hidden" onclick="setView('hidden')">숨김 <span id="cntHid"></span></button>
         </div>
+        <button class="filter-toggle" id="filterToggle" onclick="toggleFilterBar()" title="필터 보이기/숨기기">
+            필터 <span id="filterToggleCount" class="filter-toggle-count" style="display:none">0</span>
+        </button>
         <div class="header-actions">
             <button class="icon-action" id="toolbarToggle" title="사진 추가 · 정리 도구" onclick="toggleToolbar()">⋯</button>
             <button class="icon-action" title="AI 설정" onclick="openSettings()">⚙</button>
@@ -1442,15 +1488,60 @@ function clearFilters() {
 }
 
 function updateFilterUI() {
-    let anyActive = false;
+    let activeCount = 0;
     document.querySelectorAll('.filter-chips .chip[data-filter]').forEach(btn => {
         const k = btn.dataset.filter;
         const on = filterFlags[k];
         btn.classList.toggle('active', on);
-        if (on) anyActive = true;
+        if (on) activeCount++;
     });
-    document.getElementById('filterClearBtn').style.display = anyActive ? '' : 'none';
+    document.getElementById('filterClearBtn').style.display = activeCount > 0 ? '' : 'none';
+
+    const toggle = document.getElementById('filterToggle');
+    const countEl = document.getElementById('filterToggleCount');
+    toggle.classList.toggle('has-active', activeCount > 0);
+    if (activeCount > 0) {
+        countEl.textContent = activeCount;
+        countEl.style.display = '';
+    } else {
+        countEl.style.display = 'none';
+    }
+
+    // 활성 필터가 있으면 row 자동 표시 (사용자가 가렸어도 무엇이 적용 중인지 보여야 함)
+    const bar = document.getElementById('filterBar');
+    const userWantsHidden = localStorage.getItem('yoink.filterBar') === 'hidden';
+    const shouldShow = activeCount > 0 || !userWantsHidden;
+    bar.classList.toggle('collapsed', !shouldShow);
 }
+
+function toggleFilterBar() {
+    const bar = document.getElementById('filterBar');
+    const currentlyHidden = bar.classList.contains('collapsed');
+    if (currentlyHidden) {
+        // 보이기
+        localStorage.setItem('yoink.filterBar', 'visible');
+        bar.classList.remove('collapsed');
+    } else {
+        // 숨기기 — 단, 활성 필터 있으면 막음 (사용자 보호)
+        const anyActive = filterFlags.no_char || filterFlags.no_user || filterFlags.no_ai;
+        if (anyActive) {
+            // 활성 필터를 먼저 해제하지 않으면 숨길 수 없음
+            return;
+        }
+        localStorage.setItem('yoink.filterBar', 'hidden');
+        bar.classList.add('collapsed');
+    }
+}
+
+// 첫 로드 시 마지막 상태 복원 (기본은 숨김)
+(function initFilterBarVisibility() {
+    if (localStorage.getItem('yoink.filterBar') === null) {
+        localStorage.setItem('yoink.filterBar', 'hidden');
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        updateFilterUI();
+    });
+})();
 let browseOffset = 0;
 let currentQuery = '';
 const PAGE_SIZE = 40;
