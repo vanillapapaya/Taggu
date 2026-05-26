@@ -1375,6 +1375,7 @@
             <input type="text" id="searchInput" placeholder="검색어 입력" autofocus>
             <button class="secondary" onclick="doSearch()">검색</button>
             <button onclick="loadRandom()" title="랜덤 5개">랜덤</button>
+            <button onclick="goHome()" title="처음 화면으로 (검색·필터 모두 초기화)">홈</button>
         </div>
         <div class="view-tabs" id="viewTabs">
             <button class="active" data-view="all" onclick="setView('all')">전체 <span id="cntAll"></span></button>
@@ -1728,6 +1729,27 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     loadRandom();
 });
+
+function goHome() {
+    searchInput.value = '';
+    currentQuery = '';
+    currentMode = 'browse';
+    // 뷰 탭을 [전체]로
+    currentView = 'all';
+    document.querySelectorAll('.view-tabs button').forEach(b => {
+        b.classList.toggle('active', b.dataset.view === 'all');
+    });
+    // 필터 칩 모두 해제
+    filterFlags.no_char = filterFlags.no_user = filterFlags.no_ai = false;
+    updateFilterUI();
+    // 그리드 초기화 + 새로 로드
+    browseOffset = 0;
+    grid.innerHTML = '';
+    cardData = [];
+    loadBrowse();
+    // 페이지 스크롤도 맨 위로
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
 function searchByTag(tag) {
     if (!tag) return;
