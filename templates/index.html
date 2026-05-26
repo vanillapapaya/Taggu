@@ -169,7 +169,6 @@
 
         .filter-bar {
             /* header 안에 있어 자동으로 sticky에 포함됨 — 별도 position 불필요 */
-            border-top: 1px solid var(--border);
         }
         .filter-bar.collapsed { display: none; }
 
@@ -486,7 +485,6 @@
             max-width: 1400px;
             margin: 0 auto;
             padding: 12px 28px 14px;
-            border-top: 1px solid var(--border);
             font-size: 12px;
             color: var(--accent);
         }
@@ -521,7 +519,6 @@
             max-width: 1400px;
             margin: 0 auto;
             padding: 16px 28px 20px;
-            border-top: 1px solid var(--border);
         }
 
         .folder-empty {
@@ -537,7 +534,6 @@
             align-items: center;
             padding: 14px 16px;
             background: var(--bg-card);
-            border: 1px solid var(--border);
             border-radius: var(--radius-sm);
             margin-bottom: 8px;
             gap: 16px;
@@ -1465,7 +1461,7 @@
     </div>
 
     <div class="popover" id="maintPopover" style="display:none;padding:8px;min-width:200px">
-        <div style="font-size:10px;color:var(--text-muted);padding:6px 12px 8px;line-height:1.4;border-bottom:1px solid var(--border);margin-bottom:6px">실행 전에 자동으로 백업이 만들어져요</div>
+        <div style="font-size:10px;color:var(--text-muted);padding:6px 12px 8px;line-height:1.4;margin-bottom:2px">실행 전에 자동으로 백업이 만들어져요</div>
         <button class="maint-item" onclick="closeMaint(); startBackfillCcip()" title="기존 사진에 캐릭터 학습용 임베딩 채우기 (한 번만 실행)">기존 사진 학습 준비</button>
         <button class="maint-item" onclick="closeMaint(); startAutoTranslate()" title="새로 찾은 영어 캐릭터 이름을 AI가 한국어로 번역해서 등록">새 캐릭터 자동 번역</button>
         <button class="maint-item" onclick="closeMaint(); startRelocalize()" title="캐릭터 이름 사전을 다시 적용 (직접 단 태그는 유지)">이름 다시 적용</button>
