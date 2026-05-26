@@ -932,6 +932,16 @@
             opacity: 0.65;
         }
         .tag .tag-x:hover { opacity: 1; color: var(--error); }
+        .card-info .tag.clickable {
+            cursor: pointer;
+            transition: filter 0.12s, transform 0.1s;
+        }
+        .card-info .tag.clickable:hover {
+            filter: brightness(1.25);
+        }
+        .card-info .tag.clickable:active {
+            transform: scale(0.95);
+        }
         .tag-label.editing {
             outline: 1px solid var(--accent);
             outline-offset: 1px;
@@ -1719,6 +1729,13 @@ document.addEventListener('keydown', (e) => {
     loadRandom();
 });
 
+function searchByTag(tag) {
+    if (!tag) return;
+    searchInput.value = tag;
+    doSearch();
+    // 검색 결과로 스크롤이 점프하지 않도록 헤더는 그대로 둠 (sticky)
+}
+
 async function doSearch() {
     const q = searchInput.value.trim();
     if (!q) {
@@ -1842,9 +1859,10 @@ function createCard(item, showScore) {
     const userTags = parseTags(item.user_tags);
     const charTags = parseTags(item.wd_chars_ko);
     const tags = parseTags(item.tags);
-    const userHTML = userTags.slice(0, 4).map(t => `<span class="tag user">${escapeHTML(t)}</span>`).join('');
-    const charHTML = charTags.slice(0, 3).map(t => `<span class="tag char">${escapeHTML(t)}</span>`).join('');
-    const tagHTML = tags.slice(0, 3).map(t => `<span class="tag">${escapeHTML(t)}</span>`).join('');
+    const tagClick = (t) => `onclick="event.stopPropagation(); searchByTag('${escapeAttr(t)}')"`;
+    const userHTML = userTags.slice(0, 4).map(t => `<span class="tag user clickable" ${tagClick(t)} title="이 태그로 검색">${escapeHTML(t)}</span>`).join('');
+    const charHTML = charTags.slice(0, 3).map(t => `<span class="tag char clickable" ${tagClick(t)} title="이 태그로 검색">${escapeHTML(t)}</span>`).join('');
+    const tagHTML = tags.slice(0, 3).map(t => `<span class="tag clickable" ${tagClick(t)} title="이 태그로 검색">${escapeHTML(t)}</span>`).join('');
     const scoreHTML = showScore && item.score ? `<span class="score-badge">${(item.score * 100).toFixed(1)}%</span>` : '';
 
     const copyTitle = '복사';
@@ -3064,13 +3082,13 @@ function _syncCardChipsAfterPromote(id, userTags, charTags, aiTags) {
     let tagsEl = cardInfo.querySelector('.card-tags');
     // aiTags 인자가 있으면 갱신, 없으면 기존 유지
     const genericHTML = aiTags !== undefined
-        ? aiTags.slice(0, 3).map(t => `<span class="tag">${escapeHTML(t)}</span>`).join('')
+        ? aiTags.slice(0, 3).map(t => `<span class="tag clickable" onclick="event.stopPropagation(); searchByTag('${escapeAttr(t)}')" title="이 태그로 검색">${escapeHTML(t)}</span>`).join('')
         : (tagsEl
             ? Array.from(tagsEl.querySelectorAll('.tag:not(.user):not(.char):not(.work)'))
                   .map(el => el.outerHTML).join('')
             : '');
-    const userHTML = userTags.slice(0, 4).map(t => `<span class="tag user">${escapeHTML(t)}</span>`).join('');
-    const charHTML = charTags.slice(0, 3).map(t => `<span class="tag char">${escapeHTML(t)}</span>`).join('');
+    const userHTML = userTags.slice(0, 4).map(t => `<span class="tag user clickable" onclick="event.stopPropagation(); searchByTag('${escapeAttr(t)}')" title="이 태그로 검색">${escapeHTML(t)}</span>`).join('');
+    const charHTML = charTags.slice(0, 3).map(t => `<span class="tag char clickable" onclick="event.stopPropagation(); searchByTag('${escapeAttr(t)}')" title="이 태그로 검색">${escapeHTML(t)}</span>`).join('');
     const combined = charHTML + userHTML + genericHTML;
 
     if (combined) {
@@ -3121,7 +3139,7 @@ function _syncCardUserChips(id, userTags) {
     if (tagsEl) tagsEl.querySelectorAll('.tag.user').forEach(t => t.remove());
 
     // 새 사용자 chip HTML (카드는 4개까지만 노출)
-    const userHTML = userTags.slice(0, 4).map(t => `<span class="tag user">${escapeHTML(t)}</span>`).join('');
+    const userHTML = userTags.slice(0, 4).map(t => `<span class="tag user clickable" onclick="event.stopPropagation(); searchByTag('${escapeAttr(t)}')" title="이 태그로 검색">${escapeHTML(t)}</span>`).join('');
 
     if (userHTML) {
         if (!tagsEl) {
