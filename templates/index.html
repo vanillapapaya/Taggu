@@ -128,13 +128,17 @@
             color: var(--text-dim);
             border: 1px solid var(--border);
             padding: 0 10px;
-            font-size: 17px;
-            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
         .search-box button.home-btn:hover {
             background: var(--bg-elev);
             color: var(--text);
             border-color: var(--border-strong);
+        }
+        .search-box button.home-btn svg {
+            display: block;
         }
 
         .stats {
@@ -1387,7 +1391,11 @@
             <input type="text" id="searchInput" placeholder="검색어 입력" autofocus>
             <button class="secondary" onclick="doSearch()">검색</button>
             <button onclick="loadRandom()" title="랜덤 5개">랜덤</button>
-            <button class="home-btn" onclick="goHome()" title="처음 화면으로 (검색·필터 모두 초기화)">⌂</button>
+            <button class="home-btn" onclick="goHome()" title="처음 화면으로 (검색·필터 모두 초기화)" aria-label="홈">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 10.5 12 3l9 7.5V20a1.5 1.5 0 0 1-1.5 1.5H15v-7h-6v7H4.5A1.5 1.5 0 0 1 3 20Z"/>
+                </svg>
+            </button>
         </div>
         <div class="view-tabs" id="viewTabs">
             <button class="active" data-view="all" onclick="setView('all')">전체 <span id="cntAll"></span></button>
