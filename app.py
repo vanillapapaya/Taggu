@@ -583,13 +583,14 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
                 row["wd_chars"], row["wd_general"], row["filename"],
             ])).lower()
 
+            # 띄어쓰기로 분리된 각 텀이 모두 매치되어야 통과 (AND).
+            # 모든 텀이 user_tags에 있으면 0.7, 어디든 다 있으면 0.5.
             boost = 0.0
-            if q_lower and q_lower in user_haystack:
-                boost = 0.7
-            elif q_lower and q_lower in other_haystack:
-                boost = 0.5
-            elif len(q_terms) > 1 and all((t in user_haystack) or (t in other_haystack) for t in q_terms):
-                boost = 0.3
+            if q_terms:
+                if all(t in user_haystack for t in q_terms):
+                    boost = 0.7
+                elif all((t in user_haystack) or (t in other_haystack) for t in q_terms):
+                    boost = 0.5
 
             if boost == 0:
                 continue
