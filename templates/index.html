@@ -67,7 +67,14 @@
             display: flex;
             align-items: center;
             gap: 24px;
+            flex-wrap: nowrap;  /* 무조건 한 줄 */
         }
+        .header-inner > * { flex-shrink: 0; }  /* 기본은 안 줄어듬 */
+        .header-inner > .search-box {
+            flex: 1 1 0;
+            min-width: 0;  /* 좁을 때 줄어들 수 있게 */
+        }
+        .header-inner > .search-box > input { min-width: 0; }
 
         h1 {
             font-size: 17px;
@@ -295,8 +302,8 @@
             display: flex;
             gap: 4px;
             align-items: center;
-            flex-wrap: wrap;
-            justify-content: flex-end;  /* wrap 시 우측 정렬 유지 */
+            flex-wrap: nowrap;
+            justify-content: flex-end;
         }
         .icon-action {
             width: 32px;
@@ -1371,7 +1378,7 @@
         ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
 
         @media (max-width: 768px) {
-            .header-inner { flex-wrap: wrap; padding: 14px 18px 10px; gap: 12px; }
+            .header-inner { padding: 14px 18px 10px; gap: 12px; }
             .toolbar { flex-wrap: wrap; padding: 0 18px 14px; }
             .filter-chips { padding: 8px 18px 10px; }
             .stats { display: none; }
