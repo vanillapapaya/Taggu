@@ -123,6 +123,14 @@
             color: var(--text);
             border-color: var(--border-strong);
         }
+        .search-box button.pink {
+            background: var(--char);
+            border: 1px solid var(--char);
+            color: var(--accent-text);
+        }
+        .search-box button.pink:hover {
+            filter: brightness(1.08);
+        }
         .search-box button.home-btn {
             background: transparent;
             color: var(--text-dim);
@@ -1389,7 +1397,7 @@
     <div class="header-inner">
         <div class="search-box">
             <input type="text" id="searchInput" placeholder="검색어 입력" autofocus>
-            <button class="secondary" onclick="doSearch()">검색</button>
+            <button class="pink" onclick="doSearch()">검색</button>
             <button onclick="loadRandom()" title="랜덤 5개">랜덤</button>
             <button class="home-btn" onclick="goHome()" title="처음 화면으로 (검색·필터 모두 초기화)" aria-label="홈">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
