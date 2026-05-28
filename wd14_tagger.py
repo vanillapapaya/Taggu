@@ -69,9 +69,14 @@ def load_aliases(path: str = ALIASES_DEFAULT) -> dict:
     }
 
 
-def _preprocess(image_path: Path, target_size: int) -> np.ndarray:
-    """WD14 입력 형식: target_size x target_size, BGR float32, 흰 배경 패딩."""
-    img = Image.open(image_path).convert("RGBA")
+def _preprocess(image_path: Path, target_size: int, pil: Optional[Image.Image] = None) -> np.ndarray:
+    """WD14 입력 형식: target_size x target_size, BGR float32, 흰 배경 패딩.
+
+    pil 주어지면 디스크 디코드 스킵 (다른 모델과 PIL 객체 공유 시 효율).
+    """
+    img = pil if pil is not None else Image.open(image_path)
+    if img.mode != "RGBA":
+        img = img.convert("RGBA")
     bg = Image.new("RGBA", img.size, (255, 255, 255, 255))
     img = Image.alpha_composite(bg, img).convert("RGB")
 
@@ -93,13 +98,17 @@ def tag_image(
     general_threshold: float = GENERAL_THRESHOLD,
     character_threshold: float = CHARACTER_THRESHOLD,
     copyright_threshold: float = COPYRIGHT_THRESHOLD,
+    pil: Optional[Image.Image] = None,
 ) -> tuple[list[str], list[str], list[str]]:
-    """이미지를 태깅하여 (캐릭터, 작품, 일반) 영어 태그 리스트 반환."""
+    """이미지를 태깅하여 (캐릭터, 작품, 일반) 영어 태그 리스트 반환.
+
+    pil 주어지면 이미 로드된 PIL Image 사용 — index_folder가 3개 모델에 공유 시 효율.
+    """
     sess = wd14["session"]
     tags = wd14["tags"]
     target_size = wd14["target_size"]
 
-    arr = _preprocess(image_path, target_size)
+    arr = _preprocess(image_path, target_size, pil=pil)
     input_name = sess.get_inputs()[0].name
     output_name = sess.get_outputs()[0].name
     probs = sess.run([output_name], {input_name: arr})[0][0]

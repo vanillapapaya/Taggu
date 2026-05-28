@@ -199,9 +199,13 @@ def generate_embedding(
     clip_model,
     clip_preprocess,
     device: str,
+    pil: Optional[Image.Image] = None,
 ) -> np.ndarray:
-    """CLIP 이미지 임베딩 생성 (512d float32)."""
-    image = Image.open(image_path).convert("RGB")
+    """CLIP 이미지 임베딩 생성 (512d float32). pil 주어지면 디스크 디코드 스킵."""
+    if pil is not None:
+        image = pil if pil.mode == "RGB" else pil.convert("RGB")
+    else:
+        image = Image.open(image_path).convert("RGB")
     image_tensor = clip_preprocess(image).unsqueeze(0).to(device)
     with torch.no_grad():
         embedding = clip_model.encode_image(image_tensor)
@@ -213,11 +217,12 @@ def _wd14_for_image(
     image_path: Path,
     wd14: Optional[dict],
     aliases: Optional[dict],
+    pil: Optional[Image.Image] = None,
 ) -> tuple[str, str, str]:
     """이미지 한 장에 대한 WD14 결과 (chars_en_str, chars_ko_str, general_en_str)."""
     if wd14 is None:
         return "", "", ""
-    chars, works, general = wd14_tagger.tag_image(image_path, wd14)
+    chars, works, general = wd14_tagger.tag_image(image_path, wd14, pil=pil)
     all_chars = chars + works
     chars_en_str = ",".join(all_chars)
     if aliases is not None:
@@ -409,12 +414,18 @@ def index_folder(
                 tags, description = providers.with_retry(lambda: vlm_provider.analyze(image_path))
             else:
                 tags, description = "", ""
-            embedding = generate_embedding(image_path, clip_model, clip_preprocess, device)
-            wd_chars_str, wd_chars_ko_str, wd_general_str = _wd14_for_image(image_path, wd14, aliases)
+            # 디스크 디코드 1회 — 3개 모델(CLIP/WD14/CCIP)에 공유
+            try:
+                pil_shared = Image.open(image_path)
+                pil_shared.load()  # 실제 디코드 강제 (lazy 디코드 회피)
+            except Exception:
+                pil_shared = None
+            embedding = generate_embedding(image_path, clip_model, clip_preprocess, device, pil=pil_shared)
+            wd_chars_str, wd_chars_ko_str, wd_general_str = _wd14_for_image(image_path, wd14, aliases, pil=pil_shared)
             ccip_blob = None
             if ccip is not None:
                 try:
-                    ccip_blob = ccip_tagger.embed(image_path, ccip).tobytes()
+                    ccip_blob = ccip_tagger.embed(image_path, ccip, pil=pil_shared).tobytes()
                 except Exception:
                     ccip_blob = None
             conn.execute(

@@ -42,9 +42,14 @@ def load_ccip(providers: Optional[list[str]] = None):
     return {"session": sess, "cluster": cluster}
 
 
-def _preprocess(image_path: Path) -> np.ndarray:
-    """CCIP 입력 전처리: 384x384, ImageNet 정규화, NCHW float32."""
-    img = Image.open(image_path).convert("RGBA")
+def _preprocess(image_path: Path, pil: Optional[Image.Image] = None) -> np.ndarray:
+    """CCIP 입력 전처리: 384x384, ImageNet 정규화, NCHW float32.
+
+    pil 주어지면 디스크 디코드 스킵.
+    """
+    img = pil if pil is not None else Image.open(image_path)
+    if img.mode != "RGBA":
+        img = img.convert("RGBA")
     # 투명 배경은 흰색으로
     bg = Image.new("RGBA", img.size, (255, 255, 255, 255))
     img = Image.alpha_composite(bg, img).convert("RGB")
@@ -62,10 +67,13 @@ def _preprocess(image_path: Path) -> np.ndarray:
     return np.expand_dims(arr, axis=0)  # NCHW
 
 
-def embed(image_path: Path, ccip: dict) -> np.ndarray:
-    """이미지 한 장의 CCIP 임베딩 (L2-normalized float32 1D)."""
+def embed(image_path: Path, ccip: dict, pil: Optional[Image.Image] = None) -> np.ndarray:
+    """이미지 한 장의 CCIP 임베딩 (L2-normalized float32 1D).
+
+    pil 주어지면 미리 로드된 PIL Image 재사용.
+    """
     sess = ccip["session"]
-    arr = _preprocess(image_path)
+    arr = _preprocess(image_path, pil=pil)
     input_name = sess.get_inputs()[0].name
     output_name = sess.get_outputs()[0].name
     feat = sess.run([output_name], {input_name: arr})[0][0]  # (D,)
