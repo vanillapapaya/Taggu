@@ -1472,11 +1472,9 @@
         <div class="toolbar-row">
             <input type="text" id="folderInput" placeholder="이미지 폴더 경로">
             <button id="folderPickBtn" onclick="pickFolder()" title="컴퓨터에서 폴더 선택">폴더 고르기</button>
-            <button id="indexBtn" class="primary" onclick="startIndex(false)" title="이 폴더의 새 사진들을 등록">새 이미지 추가</button>
+            <button id="indexBtn" class="primary" onclick="startIndex(false)" title="이 폴더의 새 사진을 등록하고 캐릭터 인식 · AI 분석까지 자동 실행">새 이미지 추가</button>
         </div>
         <div class="toolbar-row">
-            <button id="backfillBtn" onclick="startBackfill()" title="아직 캐릭터를 못 찾은 사진에 한번 더 시도">캐릭터 인식</button>
-            <button id="aiBtn" onclick="startAIAnalysis()" title="AI가 사진을 보고 한국어 태그와 설명을 만듦">AI 분석</button>
             <button onclick="toggleFolderPanel()" title="등록된 폴더 목록 보기">폴더 목록</button>
             <div class="toolbar-spacer"></div>
             <button id="maintBtn" onclick="togglePopoverMenu('maint')" title="정리 도구 모음">유지보수 ▾</button>
@@ -1484,7 +1482,10 @@
     </div>
 
     <div class="popover" id="maintPopover" style="display:none;padding:8px;min-width:200px">
-        <div style="font-size:10px;color:var(--text-muted);padding:6px 12px 8px;line-height:1.4;margin-bottom:2px">실행 전에 자동으로 백업이 만들어져요</div>
+        <div style="font-size:10px;color:var(--text-muted);padding:6px 12px 4px;line-height:1.4">다시 돌리기</div>
+        <button id="backfillBtn" class="maint-item" onclick="closeMaint(); startBackfill()" title="아직 캐릭터를 못 찾은 사진에 한번 더 시도">캐릭터 인식만 다시</button>
+        <button id="aiBtn" class="maint-item" onclick="closeMaint(); startAIAnalysis()" title="AI 분석이 빠진 사진에 한번 더 시도">AI 분석만 다시</button>
+        <div style="font-size:10px;color:var(--text-muted);padding:10px 12px 4px;line-height:1.4;border-top:1px solid var(--border);margin-top:6px">정리 도구 · 실행 전에 자동 백업</div>
         <button class="maint-item" onclick="closeMaint(); startBackfillCcip()" title="기존 사진에 캐릭터 학습용 임베딩 채우기 (한 번만 실행)">기존 사진 학습 준비</button>
         <button class="maint-item" onclick="closeMaint(); startAutoTranslate()" title="새로 찾은 영어 캐릭터 이름을 AI가 한국어로 번역해서 등록">새 캐릭터 자동 번역</button>
         <button class="maint-item" onclick="closeMaint(); startRelocalize()" title="캐릭터 이름 사전을 다시 적용 (직접 단 태그는 유지)">이름 다시 적용</button>
@@ -1647,6 +1648,9 @@ let modalIndex = -1;
 const selected = new Set();
 
 window.addEventListener('DOMContentLoaded', async () => {
+    const folderInput = document.getElementById('folderInput');
+    const last = localStorage.getItem('yoink.lastFolder');
+    if (last && !folderInput.value) folderInput.value = last;
     try {
         const res = await fetch('/api/index/status');
         const s = await res.json();
@@ -2293,29 +2297,116 @@ async function startIndex(reindex) {
         alert('폴더 경로를 입력하세요');
         return;
     }
-    await postIndex(path, reindex);
+    await runIndexPipeline(path, reindex);
 }
 
 async function reindexFolder(path) {
     if (!confirm(`이 폴더의 모든 이미지를 처음부터 다시 분석합니다.\n시간 오래 걸림.\n\n${path}`)) return;
-    await postIndex(path, true);
+    await runIndexPipeline(path, true);
 }
 
-async function postIndex(path, reindex) {
+// 새 이미지 추가 → 캐릭터 인식 → AI 분석 풀 파이프라인.
+// 각 단계는 /api/index/status 로 폴링해서 끝나면 다음 단계로 진행.
+async function runIndexPipeline(path, reindex) {
+    // AI 분석 단계의 비용 경고를 시작 전에 한 번에 노출
+    let warn = '새 이미지 추가 → 캐릭터 인식 → AI 분석을 순서대로 실행합니다.\n\n';
     try {
-        const res = await fetch('/api/index', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({path, reindex, with_ai: false}),
-        });
-        const data = await res.json();
-        if (!res.ok || data.error) {
-            alert('오류: ' + (data.error || res.statusText));
-            return;
+        const s = await fetch('/api/settings').then(r => r.json());
+        const p = s.active || s.settings?.provider || '미설정';
+        warn += `AI 분석 백엔드: ${p}\n`;
+        if (s.settings?.provider && s.settings.provider !== 'local') {
+            warn += '⚠ API 모드 — 분석할 이미지 수만큼 비용이 발생합니다.\n(⚙ 설정에서 백엔드 변경 가능)\n';
         }
-        pollProgress();
+    } catch {}
+    warn += '\n진행할까요?';
+    if (!confirm(warn)) return;
+
+    // 이전 폴링이 돌고 있으면 멈춤
+    if (pollTimer) { pollTimer.stopped = true; pollTimer = null; }
+    document.getElementById('progress').style.display = 'block';
+
+    const indexBtn = document.getElementById('indexBtn');
+    const oldLabel = indexBtn.textContent;
+    indexBtn.disabled = true;
+    indexBtn.textContent = '진행 중...';
+
+    let prevStartedAt = 0;
+    try {
+        const initial = await fetch('/api/index/status').then(r => r.json()).catch(() => ({}));
+        prevStartedAt = initial.started_at || 0;
+    } catch {}
+
+    try {
+        // 1) 인덱싱
+        let s = await runPipelineStep('/api/index', {path, reindex, with_ai: false}, prevStartedAt);
+        if (s.status === 'error') return;
+        localStorage.setItem('yoink.lastFolder', path);
+        prevStartedAt = s.started_at || prevStartedAt;
+
+        // 2) 캐릭터 인식
+        s = await runPipelineStep('/api/backfill_wd14', null, prevStartedAt);
+        if (s.status === 'error') return;
+        prevStartedAt = s.started_at || prevStartedAt;
+
+        // 3) AI 분석
+        await runPipelineStep('/api/backfill_vlm', null, prevStartedAt);
     } catch (e) {
         alert('요청 실패: ' + e.message);
+        logError(e.message, 'runIndexPipeline');
+    } finally {
+        indexBtn.disabled = false;
+        indexBtn.textContent = oldLabel;
+        await loadFolders();
+        loadCounts();
+        if (currentMode === 'browse') {
+            browseOffset = 0;
+            grid.innerHTML = ''; cardData = [];
+            await loadBrowse();
+        }
+    }
+}
+
+// 한 단계: POST 시작 → 새 started_at 잡힐 때까지 대기 → 종료 상태까지 폴링.
+async function runPipelineStep(url, body, prevStartedAt) {
+    // 직전 단계의 lock 해제가 늦을 수 있어 409면 짧게 재시도
+    for (let i = 0; i < 10; i++) {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: body ? {'Content-Type': 'application/json'} : {},
+            body: body ? JSON.stringify(body) : undefined,
+        });
+        if (res.ok) {
+            const data = await res.json().catch(() => ({}));
+            if (data.error) throw new Error(data.error);
+            break;
+        }
+        if (res.status === 409) {
+            await new Promise(r => setTimeout(r, 300));
+            continue;
+        }
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `HTTP ${res.status}`);
+    }
+
+    // 새 job의 started_at 잡힐 때까지 대기 (직전 단계의 잔류 done 상태를 무시)
+    const transitionDeadline = Date.now() + 10000;
+    let s = {};
+    while (Date.now() < transitionDeadline) {
+        try {
+            s = await fetch('/api/index/status').then(r => r.json());
+        } catch { s = {}; }
+        if ((s.started_at || 0) > prevStartedAt) break;
+        await new Promise(r => setTimeout(r, 200));
+    }
+
+    // 종료 상태까지 폴
+    while (true) {
+        renderProgress(s);
+        if (s.status === 'idle' || s.status === 'done' || s.status === 'error') return s;
+        await new Promise(r => setTimeout(r, 1000));
+        try {
+            s = await fetch('/api/index/status').then(r => r.json());
+        } catch (e) { console.error(e); }
     }
 }
 
@@ -3374,7 +3465,7 @@ async function loadFolders() {
         }
         const totalMissing = data.wd_total_missing || 0;
         const headerHTML = totalMissing > 0
-            ? `<div class="folder-empty" style="color:var(--warn);margin-bottom:8px">아직 캐릭터 인식이 안 된 이미지 ${totalMissing}장. 위쪽 [캐릭터 인식] 버튼을 누르세요.</div>`
+            ? `<div class="folder-empty" style="color:var(--warn);margin-bottom:8px">아직 캐릭터 인식이 안 된 이미지 ${totalMissing}장. [유지보수 ▾ → 캐릭터 인식만 다시]에서 처리하세요.</div>`
             : '';
         list.innerHTML = headerHTML + data.folders.map(f => `
             <div class="folder-item">
