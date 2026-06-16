@@ -1,4 +1,4 @@
-"""Yoink 아이콘 생성기.
+"""Taggu 아이콘 생성기.
 
 PIL로 다크 + 오렌지 Y 아이콘을 멀티 사이즈 .ico (16~256px)로 저장.
 
@@ -49,12 +49,12 @@ def make_source_image(size: int = SOURCE_SIZE) -> Image.Image:
     )
 
     font = _try_font(int(size * 0.58))
-    bbox = d.textbbox((0, 0), "Y", font=font)
+    bbox = d.textbbox((0, 0), "T", font=font)
     w = bbox[2] - bbox[0]
     h = bbox[3] - bbox[1]
     x = (size - w) / 2 - bbox[0]
     y = (size - h) / 2 - bbox[1] - size * 0.04
-    d.text((x, y), "Y", fill=TEXT_COLOR, font=font)
+    d.text((x, y), "T", fill=TEXT_COLOR, font=font)
     return img
 
 

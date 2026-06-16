@@ -1,8 +1,8 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""Yoink PyInstaller spec — Mid 빌드 (CPU torch + CLIP + WD14 + API providers).
+"""Taggu PyInstaller spec — Mid 빌드 (CPU torch + CLIP + WD14 + API providers).
 
-빌드: build.bat 또는 .venv-build\\Scripts\\pyinstaller yoink.spec --noconfirm
-결과: dist/Yoink/Yoink.exe + 사이드 파일들 (~1GB)
+빌드: build.bat 또는 .venv-build\\Scripts\\pyinstaller taggu.spec --noconfirm
+결과: dist/Taggu/Taggu.exe + 사이드 파일들 (~1GB)
 """
 
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
@@ -64,7 +64,7 @@ excludes = [
 ]
 
 a = Analysis(
-    ['yoink_main.py'],
+    ['taggu_main.py'],
     pathex=[],
     binaries=[],
     datas=datas,
@@ -84,7 +84,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='Yoink',
+    name='Taggu',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -101,5 +101,5 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=False,
-    name='Yoink',
+    name='Taggu',
 )

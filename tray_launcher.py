@@ -1,4 +1,4 @@
-"""시스템 트레이 아이콘으로 Yoink 서버 관리.
+"""시스템 트레이 아이콘으로 Taggu 서버 관리.
 
 흐름:
   1. python app.py를 subprocess로 실행 (콘솔 창 없음)
@@ -9,7 +9,7 @@
 
 서버 stdout/stderr는 server_log.txt에 누적 기록 (디버깅용).
 
-VBS launcher (Yoink.vbs)에서 pythonw.exe로 호출하면 콘솔 창이 안 뜸.
+VBS launcher (Taggu.vbs)에서 pythonw.exe로 호출하면 콘솔 창이 안 뜸.
 """
 
 import socket
@@ -43,7 +43,7 @@ state: dict = {
 
 
 def make_icon_image() -> Image.Image:
-    """64x64 트레이 아이콘 이미지 생성 (워밍 다크 + 오렌지 M)."""
+    """64x64 트레이 아이콘 이미지 생성 (워밍 다크 + 오렌지 T)."""
     img = Image.new("RGB", (64, 64), "#322e2a")
     d = ImageDraw.Draw(img)
     d.ellipse((4, 4, 60, 60), fill="#1f1d1a", outline="#d97757", width=2)
@@ -51,10 +51,10 @@ def make_icon_image() -> Image.Image:
         font = ImageFont.truetype("arial.ttf", 32)
     except OSError:
         font = ImageFont.load_default()
-    bbox = d.textbbox((0, 0), "M", font=font)
+    bbox = d.textbbox((0, 0), "T", font=font)
     w = bbox[2] - bbox[0]
     h = bbox[3] - bbox[1]
-    d.text(((64 - w) / 2 - bbox[0], (64 - h) / 2 - bbox[1] - 2), "M", fill="#d97757", font=font)
+    d.text(((64 - w) / 2 - bbox[0], (64 - h) / 2 - bbox[1] - 2), "T", fill="#d97757", font=font)
     return img
 
 
@@ -189,9 +189,9 @@ def main():
     threading.Thread(target=wait_for_port_then_open, daemon=True).start()
 
     icon = pystray.Icon(
-        "yoink",
+        "taggu",
         make_icon_image(),
-        "Yoink",
+        "Taggu",
         menu=pystray.Menu(
             pystray.MenuItem("브라우저 열기", open_browser, default=True),
             pystray.MenuItem("서버 재시작", restart_server),

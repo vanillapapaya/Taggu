@@ -21,8 +21,8 @@ from typing import Optional
 
 
 HOST = "127.0.0.1"
-PORT = int(os.environ.get("YOINK_PORT", "8000"))
-SINGLE_INSTANCE_PORT = int(os.environ.get("YOINK_INSTANCE_PORT", "50815"))
+PORT = int(os.environ.get("TAGGU_PORT", "8000"))
+SINGLE_INSTANCE_PORT = int(os.environ.get("TAGGU_INSTANCE_PORT", "50815"))
 CREATE_NO_WINDOW = 0x08000000
 
 EDGE_PATHS = [
@@ -99,13 +99,13 @@ def main():
 
     lock = acquire_single_instance()
     if lock is None:
-        show_message("Yoink", "Yoink가 이미 실행 중입니다.\n작업 표시줄에서 윈도우를 확인하세요.")
+        show_message("Taggu", "Taggu가 이미 실행 중입니다.\n작업 표시줄에서 윈도우를 확인하세요.")
         sys.exit(0)
 
     browser = find_browser()
     if browser is None:
         show_message(
-            "Yoink - 오류",
+            "Taggu - 오류",
             "Microsoft Edge 또는 Google Chrome을 찾을 수 없습니다.\n둘 중 하나를 설치하세요.",
             icon=0x10,
         )
@@ -124,7 +124,7 @@ def main():
     server_thread.start()
 
     if not wait_for_port():
-        show_message("Yoink - 오류", "서버가 60초 내에 응답하지 않았습니다.", icon=0x10)
+        show_message("Taggu - 오류", "서버가 60초 내에 응답하지 않았습니다.", icon=0x10)
         sys.exit(1)
 
     scheme = "https" if use_https else "http"

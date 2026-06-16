@@ -1,4 +1,4 @@
-' Yoink desktop launcher (PyWebView native window).
+' Taggu desktop launcher (PyWebView native window).
 ' Double-click to start. Closing the window stops the server.
 
 Set fso = CreateObject("Scripting.FileSystemObject")
@@ -11,12 +11,12 @@ launcher = scriptDir & "\desktop.py"
 If Not fso.FileExists(pythonw) Then
     MsgBox "Virtual environment not found:" & vbCrLf & pythonw & vbCrLf & vbCrLf & _
            "Create it first: python -m venv .venv && .venv\Scripts\pip install -r requirements.txt", _
-           vbCritical, "Yoink"
+           vbCritical, "Taggu"
     WScript.Quit 1
 End If
 
 If Not fso.FileExists(launcher) Then
-    MsgBox "Launcher not found:" & vbCrLf & launcher, vbCritical, "Yoink"
+    MsgBox "Launcher not found:" & vbCrLf & launcher, vbCritical, "Taggu"
     WScript.Quit 1
 End If
 

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0F0F0F">
     <meta name="color-scheme" content="dark">
-    <title>Yoink</title>
+    <title>Taggu</title>
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1602,7 +1602,7 @@ function updateFilterUI() {
 
     // 활성 필터가 있으면 row 자동 표시 (사용자가 가렸어도 무엇이 적용 중인지 보여야 함)
     const bar = document.getElementById('filterBar');
-    const userWantsHidden = localStorage.getItem('yoink.filterBar') === 'hidden';
+    const userWantsHidden = localStorage.getItem('taggu.filterBar') === 'hidden';
     const shouldShow = activeCount > 0 || !userWantsHidden;
     bar.classList.toggle('collapsed', !shouldShow);
 }
@@ -1612,7 +1612,7 @@ function toggleFilterBar() {
     const currentlyHidden = bar.classList.contains('collapsed');
     if (currentlyHidden) {
         // 보이기
-        localStorage.setItem('yoink.filterBar', 'visible');
+        localStorage.setItem('taggu.filterBar', 'visible');
         bar.classList.remove('collapsed');
     } else {
         // 숨기기 — 단, 활성 필터 있으면 막음 (사용자 보호)
@@ -1621,15 +1621,15 @@ function toggleFilterBar() {
             // 활성 필터를 먼저 해제하지 않으면 숨길 수 없음
             return;
         }
-        localStorage.setItem('yoink.filterBar', 'hidden');
+        localStorage.setItem('taggu.filterBar', 'hidden');
         bar.classList.add('collapsed');
     }
 }
 
 // 첫 로드 시 마지막 상태 복원 (기본은 숨김)
 (function initFilterBarVisibility() {
-    if (localStorage.getItem('yoink.filterBar') === null) {
-        localStorage.setItem('yoink.filterBar', 'hidden');
+    if (localStorage.getItem('taggu.filterBar') === null) {
+        localStorage.setItem('taggu.filterBar', 'hidden');
     }
     document.addEventListener('DOMContentLoaded', () => {
         updateFilterUI();
@@ -1649,7 +1649,7 @@ const selected = new Set();
 
 window.addEventListener('DOMContentLoaded', async () => {
     const folderInput = document.getElementById('folderInput');
-    const last = localStorage.getItem('yoink.lastFolder');
+    const last = localStorage.getItem('taggu.lastFolder');
     if (last && !folderInput.value) folderInput.value = last;
     try {
         const res = await fetch('/api/index/status');
@@ -2340,7 +2340,7 @@ async function runIndexPipeline(path, reindex) {
         // 1) 인덱싱
         let s = await runPipelineStep('/api/index', {path, reindex, with_ai: false}, prevStartedAt);
         if (s.status === 'error') return;
-        localStorage.setItem('yoink.lastFolder', path);
+        localStorage.setItem('taggu.lastFolder', path);
         prevStartedAt = s.started_at || prevStartedAt;
 
         // 2) 캐릭터 인식
@@ -2531,7 +2531,7 @@ window.addEventListener('unhandledrejection', (e) => {
 
 const GUIDE_STEPS = [
     {
-        title: 'Yoink에 오신 걸 환영합니다',
+        title: 'Taggu에 오신 걸 환영합니다',
         html: '컴퓨터에 모아둔 <strong>사진과 짤들</strong>을 자동으로 정리해주는 도구예요.<br><br>몇 가지만 알면 바로 쓸 수 있어요. 같이 볼까요?',
     },
     {
@@ -2539,7 +2539,7 @@ const GUIDE_STEPS = [
         html: '위쪽의 <span class="hilight">⋯</span> 버튼을 누르면 도구창이 나와요.<br><br>거기에 사진이 들어있는 <strong>폴더 경로</strong>를 적고 <span class="hilight">[새 이미지 추가]</span>를 누르세요.<br><br>예) <code style="font-size:12px;color:var(--text-muted)">D:\\Download\\그림</code>',
     },
     {
-        title: '2단계 — Yoink가 사진을 살펴봐요',
+        title: '2단계 — Taggu가 사진을 살펴봐요',
         html: '사진을 한 장씩 보면서 <strong>어떤 캐릭터인지</strong>, <strong>어떤 분위기인지</strong> 알아내요.<br><br>좀 기다리면 돼요. 100장이면 1~2분 정도.<br><br>한 번만 하면 다음부턴 빨라요.',
     },
     {
@@ -2605,7 +2605,7 @@ function openGuide() {
 function closeGuide(e) {
     if (!e || e.target === document.getElementById('guideModal')) {
         document.getElementById('guideModal').classList.remove('active');
-        localStorage.setItem('yoink.guideSeen', 'true');
+        localStorage.setItem('taggu.guideSeen', 'true');
     }
 }
 
@@ -2640,7 +2640,7 @@ function guidePrev() {
 }
 
 (function autoShowGuideFirstTime() {
-    if (localStorage.getItem('yoink.guideSeen') !== 'true') {
+    if (localStorage.getItem('taggu.guideSeen') !== 'true') {
         // 페이지 로드 직후 가이드 자동 표시 (DOM 준비 후 약간 지연)
         window.addEventListener('DOMContentLoaded', () => {
             setTimeout(openGuide, 400);
@@ -3494,11 +3494,11 @@ function toggleToolbar() {
     const willShow = t.style.display === 'none';
     t.style.display = willShow ? '' : 'none';
     document.getElementById('toolbarToggle').classList.toggle('active', willShow);
-    localStorage.setItem('yoink.toolbar', willShow ? 'show' : 'hide');
+    localStorage.setItem('taggu.toolbar', willShow ? 'show' : 'hide');
 }
 
 (function initToolbarVisibility() {
-    if (localStorage.getItem('yoink.toolbar') === 'show') {
+    if (localStorage.getItem('taggu.toolbar') === 'show') {
         const t = document.getElementById('toolbar');
         const btn = document.getElementById('toolbarToggle');
         if (t) t.style.display = '';
@@ -3507,14 +3507,14 @@ function toggleToolbar() {
 })();
 
 (function initDevMode() {
-    if (localStorage.getItem('yoink.devMode') === 'true') {
+    if (localStorage.getItem('taggu.devMode') === 'true') {
         document.body.classList.add('dev-mode');
     }
 })();
 
 function toggleDevMode(on) {
     document.body.classList.toggle('dev-mode', on);
-    localStorage.setItem('yoink.devMode', on ? 'true' : 'false');
+    localStorage.setItem('taggu.devMode', on ? 'true' : 'false');
 }
 
 function toggleFolderPanel() {

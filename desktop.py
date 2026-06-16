@@ -119,15 +119,15 @@ def main():
     lock = acquire_single_instance()
     if lock is None:
         show_message(
-            "Yoink",
-            "Yoink가 이미 실행 중입니다.\n작업 표시줄에서 윈도우를 확인하세요.",
+            "Taggu",
+            "Taggu가 이미 실행 중입니다.\n작업 표시줄에서 윈도우를 확인하세요.",
         )
         sys.exit(0)
 
     browser = find_browser()
     if browser is None:
         show_message(
-            "Yoink - 오류",
+            "Taggu - 오류",
             "Microsoft Edge 또는 Google Chrome을 찾을 수 없습니다.\n둘 중 하나를 설치하세요.",
             icon=0x10,
         )
@@ -151,7 +151,7 @@ def main():
             except Exception:
                 pass
         show_message(
-            "Yoink - 오류",
+            "Taggu - 오류",
             f"서버가 120초 내에 응답하지 않았습니다.\n로그: {LOG_PATH}",
             icon=0x10,
         )

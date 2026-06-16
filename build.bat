@@ -1,7 +1,7 @@
 @echo off
-REM Yoink PyInstaller 빌드 스크립트
+REM Taggu PyInstaller 빌드 스크립트
 REM 사전 요건: .venv-build (CPU torch + pyinstaller + 모든 런타임 의존성)
-REM 결과: dist\Yoink\Yoink.exe + 사이드 파일
+REM 결과: dist\Taggu\Taggu.exe + 사이드 파일
 
 setlocal
 cd /d "%~dp0"
@@ -17,10 +17,10 @@ if not exist ".venv-build\Scripts\pyinstaller.exe" (
 
 echo === 이전 빌드 정리 중 ===
 if exist "build" rmdir /s /q build
-if exist "dist\Yoink" rmdir /s /q dist\Yoink
+if exist "dist\Taggu" rmdir /s /q dist\Taggu
 
 echo === PyInstaller 실행 중 (10~20분 소요) ===
-".venv-build\Scripts\pyinstaller.exe" yoink.spec --noconfirm
+".venv-build\Scripts\pyinstaller.exe" taggu.spec --noconfirm
 
 if errorlevel 1 (
     echo [ERROR] 빌드 실패
@@ -30,12 +30,12 @@ if errorlevel 1 (
 
 echo.
 echo === 빌드 완료 ===
-echo 결과: dist\Yoink\Yoink.exe
-echo 배포: dist\Yoink 폴더 전체를 zip으로 묶어 배포
+echo 결과: dist\Taggu\Taggu.exe
+echo 배포: dist\Taggu 폴더 전체를 zip으로 묶어 배포
 echo.
 
 REM 빌드 크기 표시
-for /f "tokens=3" %%a in ('dir /s /-c dist\Yoink ^| findstr "File(s)"') do set SIZE=%%a
+for /f "tokens=3" %%a in ('dir /s /-c dist\Taggu ^| findstr "File(s)"') do set SIZE=%%a
 echo 총 크기: %SIZE% 바이트
 
 pause

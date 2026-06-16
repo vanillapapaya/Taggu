@@ -1,5 +1,5 @@
 """
-Yoink 웹 서버: 검색 + 폴더 인덱싱 + 이미지 서빙
+Taggu 웹 서버: 검색 + 폴더 인덱싱 + 이미지 서빙
 
 사용법:
     python app.py
@@ -165,7 +165,7 @@ def _backup_db(db_path: str, reason: str) -> Optional[str]:
 
 
 def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
-    app = FastAPI(title="Yoink")
+    app = FastAPI(title="Taggu")
     templates = Jinja2Templates(directory=str(_bundle_resource("templates")))
 
     conn0 = init_db(db_path)
@@ -1041,7 +1041,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
             root.withdraw()
             root.attributes("-topmost", True)
             try:
-                path = filedialog.askdirectory(title="Yoink - 인덱싱할 폴더 선택")
+                path = filedialog.askdirectory(title="Taggu - 인덱싱할 폴더 선택")
             finally:
                 root.destroy()
             return {"path": path or None}
@@ -1383,7 +1383,7 @@ def main():
     default_cert = here / "192.168.0.75+2.pem"
     default_key = here / "192.168.0.75+2-key.pem"
 
-    parser = argparse.ArgumentParser(description="Yoink 웹 서버")
+    parser = argparse.ArgumentParser(description="Taggu 웹 서버")
     parser.add_argument("--images", help="(선택) 시작 시 자동 등록할 이미지 폴더 경로")
     parser.add_argument("--db", default=DB_DEFAULT, help=f"SQLite DB 경로 (기본값: {DB_DEFAULT})")
     parser.add_argument("--host", default="0.0.0.0", help="호스트 (기본값: 0.0.0.0)")

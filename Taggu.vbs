@@ -1,4 +1,4 @@
-' Yoink silent launcher (no console window).
+' Taggu silent launcher (no console window).
 ' Double-click to start: tray icon appears, browser opens when server is ready.
 ' To exit: right-click tray icon -> Exit.
 
@@ -12,12 +12,12 @@ launcher = scriptDir & "\tray_launcher.py"
 If Not fso.FileExists(pythonw) Then
     MsgBox "Virtual environment not found:" & vbCrLf & pythonw & vbCrLf & vbCrLf & _
            "Create it first: python -m venv .venv && .venv\Scripts\pip install -r requirements.txt", _
-           vbCritical, "Yoink"
+           vbCritical, "Taggu"
     WScript.Quit 1
 End If
 
 If Not fso.FileExists(launcher) Then
-    MsgBox "Launcher not found:" & vbCrLf & launcher, vbCritical, "Yoink"
+    MsgBox "Launcher not found:" & vbCrLf & launcher, vbCritical, "Taggu"
     WScript.Quit 1
 End If
 
