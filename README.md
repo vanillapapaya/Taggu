@@ -20,11 +20,9 @@
 - [설치](#설치)
 - [사용법](#사용법)
 - [API 레퍼런스](#api-레퍼런스)
-- [AI 백엔드와 비용](#ai-백엔드와-비용)
 - [트러블슈팅](#트러블슈팅)
 - [비슷한 도구](#비슷한-도구)
 - [한계](#한계)
-- [로드맵](#로드맵)
 - [라이선스](#라이선스)
 
 ## 개요
@@ -158,7 +156,7 @@ flowchart TD
 | 웹 서버 | FastAPI + Uvicorn | async, Pydantic 검증 |
 | 프론트엔드 | Vanilla HTML/CSS/JS | 빌드 단계 없음, 한 파일 |
 | 데스크톱 래핑 | Edge / Chrome `--app` | Electron 없이 독립 창 |
-| 패키징 | PyInstaller (onedir, 약 550MB) | Python 미설치 사용자용 EXE |
+| 패키징 | PyInstaller (onedir) | Python 미설치 사용자용 EXE |
 | HTTPS (LAN) | mkcert 자체 서명 인증서 | LAN의 다른 기기에서 클립보드 API 사용 |
 
 ## 설치
@@ -167,7 +165,7 @@ flowchart TD
 
 ### A. 패키지된 EXE (가장 쉬움, GPU 불필요)
 
-1. Releases에서 `Taggu-vX.X.X-mid.zip` 다운로드 (약 550MB)
+1. [Releases](https://github.com/vanillapapaya/Taggu/releases)에서 `Taggu-vX.X.X-mid.zip` 다운로드
 2. 압축 해제
 3. `Taggu.exe` 실행
 4. 설정에서 Gemini/OpenAI 키 입력 후 저장
@@ -225,7 +223,7 @@ $env:VIRTUAL_ENV="$PWD\.venv-build"
 uv pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
 uv pip install -r requirements.txt pyinstaller
 .\build.bat
-# 결과: dist\Taggu\Taggu.exe (약 550MB, onedir)
+# 결과: dist\Taggu\Taggu.exe (onedir)
 ```
 
 ## 사용법
@@ -356,8 +354,6 @@ Taggu의 차이는 다음 정도다.
 - **한국어 우선** — UI/태그/프롬프트 전부 한국어. 영어 환경에서는 어색.
 - **애니/일러 편향** — WD14가 anime 데이터 학습이라 실사 사진의 캐릭터 인식은 약함.
 - **AI 모드 단일 선택** — 한 번에 한 모드로만 분석. 모드 비교/하이브리드 없음.
-
-
 
 ## 라이선스
 
