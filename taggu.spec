@@ -61,6 +61,10 @@ excludes = [
     'notebook',
     'pytest',
     'sphinx',
+    # 유튜브 짤 도구 — EXE에는 번들하지 않음 (yt-dlp 가끔 갱신 필요 + 용량).
+    # EXE 사용자는 직접 설치, 소스/uv 사용자는 requirements.txt로 자동 설치.
+    'yt_dlp',
+    'imageio_ffmpeg',
 ]
 
 a = Analysis(

@@ -178,6 +178,8 @@ flowchart TD
 
 이 경로의 AI 분석은 API 모드만 가능하다. 로컬 GPU 모드는 B 또는 C로.
 
+> 유튜브 짤 생성 기능은 EXE에 도구가 포함돼 있지 않다. EXE에서 쓰려면 `yt-dlp`와 `ffmpeg`를 따로 설치하면 된다(`uv tool install yt-dlp` 또는 `pip install -U yt-dlp`, `winget install ffmpeg`). 없으면 버튼만 비활성화되고 나머지 기능은 그대로다. 소스/uv 실행(B·C)은 자동 설치된다.
+
 ### B. 소스 실행 (전체 기능)
 
 전제: Windows + Python 3.13 + NVIDIA GPU (RTX 30/40/50 시리즈)
