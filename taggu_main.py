@@ -97,6 +97,19 @@ def main():
     # EXE 옆 디렉토리를 작업 디렉토리로 (DB, settings.json, templates 등이 여기에 위치)
     os.chdir(_exe_dir())
 
+    # windowed(console=False) 빌드에선 sys.stdout/stderr가 None이라,
+    # 서버 스레드의 print()/로그가 예외를 일으켜 부팅이 통째로 멈춘다.
+    # 로그 파일로 우회 (열기 실패 시 devnull). 향후 디버깅에도 유용.
+    if sys.stdout is None or sys.stderr is None:
+        try:
+            _log = open(_exe_dir() / "server_log.txt", "a", encoding="utf-8", buffering=1)
+        except Exception:
+            _log = open(os.devnull, "w")
+        if sys.stdout is None:
+            sys.stdout = _log
+        if sys.stderr is None:
+            sys.stderr = _log
+
     lock = acquire_single_instance()
     if lock is None:
         show_message("Taggu", "Taggu가 이미 실행 중입니다.\n작업 표시줄에서 윈도우를 확인하세요.")
