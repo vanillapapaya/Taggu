@@ -52,7 +52,9 @@ state: dict = {"proc": None, "stop": threading.Event()}
 
 
 def find_browser() -> Optional[Path]:
-    for p in EDGE_PATHS + CHROME_PATHS:
+    # Chrome 우선 — Chrome --app은 favicon(Taggu 아이콘)을 작업표시줄에 표시.
+    # Edge --app은 Edge 아이콘을 보여줘서, Chrome 있으면 Chrome을 먼저 쓴다. 없으면 Edge 폴백.
+    for p in CHROME_PATHS + EDGE_PATHS:
         if p.exists():
             return p
     return None
