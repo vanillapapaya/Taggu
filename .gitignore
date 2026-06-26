@@ -56,3 +56,6 @@ settings.json
 
 # Claude
 .claude/
+
+# 내부 설계 문서 (로컬 보관, 공개 X — README만 공개)
+docs/
