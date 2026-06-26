@@ -24,5 +24,11 @@ huggingface_hub
 # Image
 Pillow
 
+# 유튜브 짤 생성 (유튜브 구간 → GIF/JPEG)
+#  - yt-dlp: 영상 구간 다운로드. 유튜브 변동에 따라 가끔 'uv pip install -U yt-dlp' 필요
+#  - imageio-ffmpeg: ffmpeg 바이너리를 venv 안에 동봉 (winget 없이 자동 설치)
+yt-dlp
+imageio-ffmpeg
+
 # Core
 numpy

@@ -39,6 +39,7 @@ from index import (
 )
 import make_icon
 import providers
+import ytgif
 
 def _bundle_resource(rel: str) -> Path:
     """번들된 리소스(templates/icon/aliases) 경로. PyInstaller 시 _MEIPASS, 일반 dev 시 스크립트 디렉토리."""
@@ -79,6 +80,16 @@ class MoveTagRequest(BaseModel):
 
 class SettingsRequest(BaseModel):
     settings: dict
+
+
+class YoutubeClipRequest(BaseModel):
+    url: str
+    start: str                      # "10", "1:05", "1:02:03"
+    end: Optional[str] = None       # 없거나 빈 값이면 JPEG 한 컷
+    folder: Optional[str] = None    # 저장할 등록 폴더 (없으면 첫 폴더)
+    width: Optional[int] = None     # 기본: GIF 480 / JPEG 640
+    fps: Optional[int] = None       # GIF 전용, 기본 15
+    with_ai: bool = False           # 추가 후 AI 한국어 분석까지 돌릴지
 
 
 class SettingsTestRequest(BaseModel):
@@ -360,6 +371,55 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
                 f"완료 (처리 {index_state['success']}, 오류 {index_state['errors']}, "
                 f"스킵 {index_state['skipped']})"
             )
+        except Exception as e:
+            traceback.print_exc()
+            index_state["status"] = "error"
+            index_state["message"] = str(e)
+            index_state["finished_at"] = time.time()
+        finally:
+            index_lock.release()
+
+    def run_youtube_clip(url, start, end, target_folder, save_dir, width, fps, with_ai):
+        """유튜브 구간을 GIF/JPEG로 만들어 등록 폴더 안에 저장 → 증분 인덱싱.
+
+        end가 비어 있으면 JPEG 한 컷. 저장 후 target_folder를 incremental 인덱싱하면
+        mtime 비교로 새 짤 한 장만 처리되어 검색 인덱스에 편입된다.
+        """
+        if not index_lock.acquire(blocking=False):
+            return
+        try:
+            import os as _os
+            mode = "gif" if (end is not None and str(end).strip()) else "jpg"
+            _reset_progress("(유튜브 짤)", "유튜브에서 구간 받는 중...")
+            index_state["status"] = "running"
+
+            fname = f"yt_{int(time.time())}_{_os.urandom(2).hex()}.{mode}"
+            out_path = str(Path(save_dir) / fname)
+            ytgif.generate(url, start, end, out_path, width=width, fps=fps)
+
+            index_state["message"] = "짤 저장됨 — 인덱싱 중..."
+            wd14 = ensure_wd14()
+            ccip = ensure_ccip()
+            provider = get_vlm_provider() if with_ai else None
+            if provider is not None:
+                provider.ensure_ready()
+            index_state["message"] = ""
+
+            index_folder(
+                target_folder, db_path, provider,
+                clip_model, clip_preprocess, device,
+                progress=index_state, reindex=False,
+                wd14=wd14, aliases=aliases_state["data"],
+                use_vlm=with_ai, ccip=ccip,
+            )
+
+            index_state["status"] = "done"
+            index_state["finished_at"] = time.time()
+            index_state["message"] = f"유튜브 짤 추가 완료: {fname}"
+        except ytgif.YtgifError as e:
+            index_state["status"] = "error"
+            index_state["message"] = str(e)
+            index_state["finished_at"] = time.time()
         except Exception as e:
             traceback.print_exc()
             index_state["status"] = "error"
@@ -1098,6 +1158,77 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         )
         thread.start()
         return {"status": "started", "folder": str(p.resolve())}
+
+    @app.get("/api/youtube/tools")
+    async def youtube_tools():
+        """yt-dlp / ffmpeg 설치 여부. UI 버튼 활성/비활성 판단용."""
+        status = ytgif.tools_status()
+        return {
+            "yt_dlp": status["yt_dlp"],
+            "ffmpeg": status["ffmpeg"],
+            "ready": status["yt_dlp"] and status["ffmpeg"],
+        }
+
+    @app.post("/api/youtube_clip")
+    async def youtube_clip(req: YoutubeClipRequest):
+        """유튜브 구간 → GIF(시작·끝) 또는 JPEG 한 컷(시작만)을 등록 폴더에 저장 + 인덱싱."""
+        tools = ytgif.tools_status()
+        if not (tools["yt_dlp"] and tools["ffmpeg"]):
+            missing = []
+            if not tools["yt_dlp"]:
+                missing.append("yt-dlp (uv tool install yt-dlp)")
+            if not tools["ffmpeg"]:
+                missing.append("ffmpeg (winget install ffmpeg)")
+            return JSONResponse(
+                {"error": "유튜브 기능에 필요한 도구가 없습니다: " + ", ".join(missing)},
+                status_code=400,
+            )
+
+        if not req.url.strip():
+            return JSONResponse({"error": "유튜브 주소를 입력하세요"}, status_code=400)
+
+        # 시간 형식 빠른 검증 (다운로드 시작 전 즉시 피드백)
+        try:
+            ytgif.parse_time(req.start)
+            if req.end is not None and req.end.strip():
+                ytgif.parse_time(req.end)
+        except ytgif.YtgifError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+        # 저장할 등록 폴더 결정 — 반드시 allowed root 안이어야 서빙/인덱싱됨
+        roots = get_allowed_roots()
+        if not roots:
+            return JSONResponse(
+                {"error": "이미지 폴더를 먼저 등록하세요 (관리 도구 → 폴더 추가)"},
+                status_code=400,
+            )
+        if req.folder and req.folder.strip():
+            target = Path(req.folder).resolve()
+            if not any(target == r.resolve() for r in roots):
+                return JSONResponse({"error": "등록된 폴더가 아닙니다"}, status_code=400)
+        else:
+            target = roots[0].resolve()
+
+        if index_lock.locked():
+            return JSONResponse({"error": "다른 작업이 진행 중입니다"}, status_code=409)
+
+        is_gif = bool(req.end is not None and req.end.strip())
+        width = req.width or (480 if is_gif else 640)
+        fps = req.fps or 15
+        save_dir = target / "유튜브짤"
+
+        thread = threading.Thread(
+            target=run_youtube_clip,
+            args=(req.url.strip(), req.start, req.end, str(target),
+                  str(save_dir), width, fps, req.with_ai),
+            daemon=True,
+        )
+        thread.start()
+        return {
+            "status": "started",
+            "mode": "gif" if is_gif else "jpg",
+            "folder": str(target),
+        }
 
     def run_backfill_vlm():
         if not index_lock.acquire(blocking=False):

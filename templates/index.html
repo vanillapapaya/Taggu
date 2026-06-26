@@ -1476,6 +1476,7 @@
         </div>
         <div class="toolbar-row">
             <button onclick="toggleFolderPanel()" title="등록된 폴더 목록 보기">폴더 목록</button>
+            <button id="youtubeBtn" onclick="openYoutubeModal()" title="유튜브 영상에서 GIF/JPEG 짤 만들기">유튜브 짤 생성</button>
             <div class="toolbar-spacer"></div>
             <button id="maintBtn" onclick="togglePopoverMenu('maint')" title="정리 도구 모음">유지보수 ▾</button>
         </div>
@@ -1535,6 +1536,91 @@
 <div class="modal-overlay" id="settingsModal" onclick="closeSettings(event)">
     <div class="modal-content settings-modal" onclick="event.stopPropagation()">
         <div class="settings-body" id="settingsBody">로딩 중...</div>
+    </div>
+</div>
+
+<style>
+    #youtubeBtn { background: var(--user); border-color: var(--user); color: #fff; }
+    #youtubeBtn:hover { background: #8a8ac0; border-color: #8a8ac0; color: #fff; }
+    #youtubeModal .yt-row { margin-bottom: 14px; }
+    #youtubeModal label.yt-label { display:block; font-size:12px; color:var(--text-muted); margin-bottom:5px; }
+    #youtubeModal input.yt-in, #youtubeModal select.yt-in {
+        width:100%; padding:9px 11px; font-size:13px; box-sizing:border-box;
+        background:var(--bg-card); color:var(--text);
+        border:1px solid var(--border); border-radius:8px; outline:none;
+    }
+    #youtubeModal input.yt-in:focus, #youtubeModal select.yt-in:focus { border-color:var(--border-strong); }
+    #youtubeModal .yt-mode-btn {
+        flex:1; padding:9px; font-size:13px; cursor:pointer;
+        background:var(--bg-card); color:var(--text-muted);
+        border:1px solid var(--border); border-radius:8px;
+    }
+    #youtubeModal .yt-mode-btn.active { background:var(--accent); color:var(--accent-text); border-color:var(--accent); }
+    #youtubeModal .yt-half { display:flex; gap:10px; }
+    #youtubeModal .yt-half > div { flex:1; }
+    #youtubeModal .yt-act {
+        padding:9px 18px; font-size:13px; cursor:pointer; border-radius:8px;
+        background:var(--bg-card); color:var(--text); border:1px solid var(--border);
+    }
+    #youtubeModal .yt-act:hover { border-color:var(--border-strong); }
+    #youtubeModal .yt-act.primary { background:var(--accent); color:var(--accent-text); border-color:var(--accent); }
+    #youtubeModal .yt-act:disabled { opacity:.5; cursor:not-allowed; }
+</style>
+<div class="modal-overlay" id="youtubeModal" onclick="closeYoutube(event)">
+    <div class="modal-content" onclick="event.stopPropagation()" style="max-width:460px;width:92%;background:var(--bg-elev);border:1px solid var(--border);border-radius:14px;padding:22px;display:block;max-height:none">
+        <div style="font-size:15px;font-weight:600;margin-bottom:4px">유튜브 짤 만들기</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px">영상 구간을 GIF로, 또는 한 순간을 JPEG로 저장합니다. 만든 짤은 자동으로 검색에 들어갑니다.</div>
+
+        <div id="ytHint" style="display:none;font-size:12px;color:var(--warn);background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:14px;line-height:1.5"></div>
+
+        <div class="yt-row">
+            <label class="yt-label">유튜브 주소</label>
+            <input class="yt-in" id="ytUrl" type="text" placeholder="https://youtu.be/..." value="https://youtu.be/dQw4w9WgXcQ">
+        </div>
+
+        <div class="yt-row">
+            <label class="yt-label">모드</label>
+            <div style="display:flex;gap:10px">
+                <button type="button" class="yt-mode-btn active" id="ytModeGif" onclick="setYtMode('gif')">GIF (구간)</button>
+                <button type="button" class="yt-mode-btn" id="ytModeJpg" onclick="setYtMode('jpg')">JPEG (한 컷)</button>
+            </div>
+        </div>
+
+        <div class="yt-row yt-half">
+            <div>
+                <label class="yt-label" id="ytStartLabel">시작 시간</label>
+                <input class="yt-in" id="ytStart" type="text" placeholder="예: 10 또는 1:05" value="10">
+            </div>
+            <div id="ytEndWrap">
+                <label class="yt-label">끝 시간</label>
+                <input class="yt-in" id="ytEnd" type="text" placeholder="예: 15 또는 1:12" value="15">
+            </div>
+        </div>
+
+        <div class="yt-row">
+            <label class="yt-label">저장할 폴더</label>
+            <select class="yt-in" id="ytFolder"></select>
+        </div>
+
+        <div class="yt-row yt-half">
+            <div>
+                <label class="yt-label">가로 픽셀 <span style="opacity:.6">(선택)</span></label>
+                <input class="yt-in" id="ytWidth" type="number" placeholder="GIF 480 / JPEG 640" value="480">
+            </div>
+            <div id="ytFpsWrap">
+                <label class="yt-label">FPS <span style="opacity:.6">(선택)</span></label>
+                <input class="yt-in" id="ytFps" type="number" placeholder="15" value="15">
+            </div>
+        </div>
+
+        <label class="yt-row" style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="ytAi"> 만든 뒤 AI 한국어 분석까지 실행
+        </label>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:6px">
+            <button type="button" class="yt-act" onclick="closeYoutube()">취소</button>
+            <button type="button" class="yt-act primary" id="ytSubmit" onclick="submitYoutube()">만들기</button>
+        </div>
     </div>
 </div>
 
@@ -2671,6 +2757,110 @@ async function openSettings() {
 function closeSettings(e) {
     if (!e || e.target === document.getElementById('settingsModal')) {
         document.getElementById('settingsModal').classList.remove('active');
+    }
+}
+
+// ---- 유튜브 짤 (GIF 구간 / JPEG 한 컷) ----
+let ytMode = 'gif';
+
+async function openYoutubeModal() {
+    const modal = document.getElementById('youtubeModal');
+    const sel = document.getElementById('ytFolder');
+    try {
+        const data = await fetch('/api/folders').then(r => r.json());
+        const folders = data.folders || [];
+        sel.innerHTML = folders.length === 0
+            ? '<option value="">(등록된 폴더 없음 — 먼저 폴더를 추가하세요)</option>'
+            : folders.map(f =>
+                `<option value="${escapeAttr(f.path)}">${escapeHTML(f.path)} (${f.image_count}장)</option>`
+              ).join('');
+    } catch {
+        sel.innerHTML = '<option value="">(폴더 목록 로드 실패)</option>';
+    }
+    setYtMode('gif');
+    modal.classList.add('active');
+    await loadYoutubeTools();
+}
+
+function closeYoutube(e) {
+    if (!e || e.target === document.getElementById('youtubeModal')) {
+        document.getElementById('youtubeModal').classList.remove('active');
+    }
+}
+
+function setYtMode(mode) {
+    ytMode = mode;
+    document.getElementById('ytModeGif').classList.toggle('active', mode === 'gif');
+    document.getElementById('ytModeJpg').classList.toggle('active', mode === 'jpg');
+    const isGif = mode === 'gif';
+    // 한 컷(JPEG)일 땐 끝 시간 · FPS 자리만 숨김 (레이아웃 유지 위해 visibility)
+    document.getElementById('ytEndWrap').style.visibility = isGif ? 'visible' : 'hidden';
+    document.getElementById('ytFpsWrap').style.visibility = isGif ? 'visible' : 'hidden';
+    document.getElementById('ytStartLabel').textContent = isGif ? '시작 시간' : '캡처 시간';
+}
+
+async function loadYoutubeTools() {
+    const hint = document.getElementById('ytHint');
+    const submit = document.getElementById('ytSubmit');
+    try {
+        const t = await fetch('/api/youtube/tools').then(r => r.json());
+        if (!t.ready) {
+            const miss = [];
+            if (!t.yt_dlp) miss.push('yt-dlp 설치: uv tool install yt-dlp');
+            if (!t.ffmpeg) miss.push('ffmpeg 설치: winget install ffmpeg');
+            hint.innerHTML = '유튜브 기능에 필요한 도구가 없습니다.<br>' + miss.map(escapeHTML).join('<br>');
+            hint.style.display = 'block';
+            submit.disabled = true;
+        } else {
+            hint.style.display = 'none';
+            submit.disabled = false;
+        }
+    } catch {
+        hint.style.display = 'none';
+        submit.disabled = false;
+    }
+}
+
+async function submitYoutube() {
+    const url = document.getElementById('ytUrl').value.trim();
+    const start = document.getElementById('ytStart').value.trim();
+    const end = document.getElementById('ytEnd').value.trim();
+    const folder = document.getElementById('ytFolder').value;
+    const widthRaw = document.getElementById('ytWidth').value.trim();
+    const fpsRaw = document.getElementById('ytFps').value.trim();
+    const withAi = document.getElementById('ytAi').checked;
+
+    if (!url) { alert('유튜브 주소를 입력하세요'); return; }
+    if (!start) { alert('시작 시간을 입력하세요'); return; }
+    if (ytMode === 'gif' && !end) { alert('GIF는 끝 시간이 필요합니다 (한 순간만 저장하려면 JPEG 모드)'); return; }
+    if (!folder) { alert('저장할 폴더가 없습니다. 먼저 폴더를 등록하세요.'); return; }
+
+    const body = { url, start, folder, with_ai: withAi, end: ytMode === 'gif' ? end : null };
+    if (widthRaw) body.width = parseInt(widthRaw, 10);
+    if (fpsRaw) body.fps = parseInt(fpsRaw, 10);
+
+    const submit = document.getElementById('ytSubmit');
+    const old = submit.textContent;
+    submit.disabled = true;
+    submit.textContent = '시작 중...';
+    try {
+        const res = await fetch('/api/youtube_clip', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.error) {
+            alert('오류: ' + (data.error || res.statusText));
+            return;
+        }
+        closeYoutube();
+        pollProgress();
+    } catch (e) {
+        alert('요청 실패: ' + e.message);
+    } finally {
+        submit.disabled = false;
+        submit.textContent = old;
     }
 }
 
