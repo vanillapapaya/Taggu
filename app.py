@@ -1468,15 +1468,21 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         }
 
     THUMB_DIR = Path("thumbnails")
-    THUMB_SIZE = 480  # 카드 그리드는 240px 표시, retina 대비 2x
-    THUMB_MAX_FRAMES = 60  # 너무 긴 GIF는 프레임 캡 (인코딩 시간 보호)
-    THUMB_VERSION = "v3"  # 정사각 cover 크롭 도입(세로 긴 이미지 뭉개짐 해결) — 옛 캐시 무효화
+    THUMB_SIZE = 480  # 정지 이미지 카드 그리드는 240px 표시, retina 대비 2x
+    THUMB_ANIM_SIZE = 360  # 애니메이션은 프레임 수만큼 용량이 곱해지므로 더 작게
+    THUMB_MAX_FRAMES = 24  # 그리드 프리뷰용 — 긴 GIF는 균등 샘플링해 프레임 캡
+    THUMB_VERSION = "v4"  # animated 경량화(360px·24프레임 샘플·q60) — 옛 v3 캐시 무효화
+
+    # 무거운 PIL 인코딩(특히 대형 GIF)이 한꺼번에 몰려 CPU를 마비시키는 것 방지.
+    # 캐시 히트는 이 제한과 무관 — 오직 '생성' 시점만 직렬화 완화.
+    _thumb_gen_sem = threading.Semaphore(3)
 
     def _make_thumbnail(src: Path, cache: Path) -> bool:
-        """src를 thumb_size 이내로 리사이즈해 cache에 WebP 저장.
+        """src를 WebP 썸네일로 저장. 애니메이션은 프레임 샘플링 + 축소로 경량화.
 
-        애니메이션(GIF/animated WebP)이면 애니메이티드 WebP로 변환 — 움직임 유지하며
-        해상도/품질 다운으로 용량 감소 (GIF 대비 30~70%).
+        애니메이션(GIF/animated WebP)이면 애니메이티드 WebP로 변환하되, 프레임을
+        THUMB_MAX_FRAMES로 균등 샘플링(재생 길이는 duration 보정으로 유지)하고
+        THUMB_ANIM_SIZE로 축소 → 생성 시간·용량을 수 초·수 MB에서 1초 미만·수백 KB로.
         실패 시 False 반환 → caller가 원본 fallback.
         """
         from PIL import Image as PILImage, ImageOps
@@ -1488,23 +1494,26 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
             if is_animated:
                 frames = []
                 durations = []
-                frame_count = min(n_frames, THUMB_MAX_FRAMES)
-                for i in range(frame_count):
+                # 긴 GIF는 균등 간격으로 프레임을 골라 최대 THUMB_MAX_FRAMES장만 사용.
+                step = max(1, -(-n_frames // THUMB_MAX_FRAMES))  # ceil(n/max)
+                indices = list(range(0, n_frames, step))[:THUMB_MAX_FRAMES]
+                for i in indices:
                     img.seek(i)
                     frame = img.copy()
                     if frame.mode not in ("RGB", "RGBA"):
                         frame = frame.convert("RGBA")
-                    # 긴 변 맞춤 대신 정사각으로 cover + 중앙 크롭 → 세로/가로 긴 이미지도 카드에 꽉 차게(선명)
-                    frame = ImageOps.fit(frame, (THUMB_SIZE, THUMB_SIZE), PILImage.LANCZOS)
+                    # 정사각 cover + 중앙 크롭 → 세로/가로 긴 이미지도 카드에 꽉 차게
+                    frame = ImageOps.fit(frame, (THUMB_ANIM_SIZE, THUMB_ANIM_SIZE), PILImage.LANCZOS)
                     frames.append(frame)
-                    durations.append(img.info.get("duration", 100))
+                    # 건너뛴 프레임만큼 재생 시간 보정 → 원본 속도감 유지
+                    durations.append(img.info.get("duration", 100) * step)
                 frames[0].save(
                     cache, "WEBP",
                     save_all=True,
                     append_images=frames[1:],
                     duration=durations,
                     loop=img.info.get("loop", 0),
-                    quality=75,
+                    quality=60,
                     method=4,
                 )
             else:
@@ -1537,8 +1546,11 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         cache = THUMB_DIR / f"{image_id}_{mtime_int}_{THUMB_SIZE}_{THUMB_VERSION}.webp"
 
         if not cache.exists():
-            if not _make_thumbnail(src, cache):
-                return FileResponse(str(src))
+            with _thumb_gen_sem:
+                # 세마포어 대기 중 다른 요청이 같은 썸네일을 만들었을 수 있음 → 재확인
+                if not cache.exists():
+                    if not _make_thumbnail(src, cache):
+                        return FileResponse(str(src))
 
         return FileResponse(str(cache), media_type="image/webp")
 
@@ -1568,6 +1580,50 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         }
         media_type = media_types.get(suffix, "application/octet-stream")
         return FileResponse(str(resolved), media_type=media_type)
+
+    def _prewarm_thumbnails():
+        """백그라운드로 미생성 썸네일을 만들고 옛 버전 캐시를 정리한다.
+
+        서버 시작 시 한 번 실행 — 브라우징 전에 캐시를 채워두면 /thumbs 요청이
+        항상 캐시 히트라 즉시 응답(느린 온디맨드 생성/타임아웃 방지). 이미 다
+        채워져 있으면 stat 체크만 하고 끝나 부담 없음.
+        """
+        try:
+            conn = get_db()
+            rows = conn.execute("SELECT id, path, mtime FROM images").fetchall()
+            conn.close()
+            THUMB_DIR.mkdir(exist_ok=True)
+
+            valid_names = set()
+            generated = 0
+            for row in rows:
+                src = Path(row["path"])
+                if not src.exists():
+                    continue
+                mt = int(row["mtime"] or src.stat().st_mtime)
+                name = f"{row['id']}_{mt}_{THUMB_SIZE}_{THUMB_VERSION}.webp"
+                valid_names.add(name)
+                cache = THUMB_DIR / name
+                if cache.exists():
+                    continue
+                with _thumb_gen_sem:
+                    if not cache.exists() and _make_thumbnail(src, cache):
+                        generated += 1
+
+            # 옛 버전/변경된 mtime의 orphan 썸네일 정리 (디스크 회수)
+            removed = 0
+            for f in THUMB_DIR.glob("*.webp"):
+                if f.name not in valid_names:
+                    try:
+                        f.unlink()
+                        removed += 1
+                    except OSError:
+                        pass
+            print(f"[thumb prewarm] 생성 {generated}, 정리 {removed}, 유효 {len(valid_names)}")
+        except Exception:
+            traceback.print_exc()
+
+    threading.Thread(target=_prewarm_thumbnails, name="thumb-prewarm", daemon=True).start()
 
     return app
 
