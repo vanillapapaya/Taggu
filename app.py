@@ -474,9 +474,10 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         n: int = Query(5, ge=1, le=50),
         view: str = Query("all"),
         no_char: int = Query(0), no_user: int = Query(0), no_ai: int = Query(0),
+        folder: int = Query(0, description="폴더 스코프 folder_id (0 = 전체)"),
     ):
         conn = get_db()
-        where = _view_filter(view, bool(no_char), bool(no_user), bool(no_ai))
+        where = _view_filter(view, bool(no_char), bool(no_user), bool(no_ai), folder)
         rows = conn.execute(
             f"SELECT id, path, filename, tags, description, wd_chars_ko, wd_chars, hidden, favorite, user_tags "
             f"FROM images WHERE {where} ORDER BY RANDOM() LIMIT ?",
@@ -577,8 +578,9 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         return JSONResponse({"error": "no icon"}, status_code=404)
 
 
-    def _view_filter(view: str, no_char: bool = False, no_user: bool = False, no_ai: bool = False) -> str:
-        """view 모드 + 필터 칩 조합 → SQL WHERE 절."""
+    def _view_filter(view: str, no_char: bool = False, no_user: bool = False, no_ai: bool = False,
+                     folder_id: int = 0) -> str:
+        """view 모드 + 필터 칩 + 폴더 스코프 조합 → SQL WHERE 절."""
         if view == "favorite":
             parts = ["favorite=1", "hidden=0"]
         elif view == "hidden":
@@ -591,6 +593,9 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
             parts.append("(user_tags IS NULL OR user_tags='')")
         if no_ai:
             parts.append("(tags IS NULL OR tags='')")
+        # folder_id는 Query(int)로 검증돼 들어오므로 인라인 안전 (0 = 전체)
+        if folder_id:
+            parts.append(f"folder_id = {int(folder_id)}")
         return " AND ".join(parts)
 
     @app.get("/api/search")
@@ -599,6 +604,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         limit: int = Query(40, ge=1, le=200, description="결과 수"),
         view: str = Query("all", description="all | favorite | hidden"),
         no_char: int = Query(0), no_user: int = Query(0), no_ai: int = Query(0),
+        folder: int = Query(0, description="폴더 스코프 folder_id (0 = 전체)"),
     ):
         try:
             query_emb = text_to_embedding(q)
@@ -608,7 +614,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
 
         try:
             conn = get_db()
-            where = _view_filter(view, bool(no_char), bool(no_user), bool(no_ai))
+            where = _view_filter(view, bool(no_char), bool(no_user), bool(no_ai), folder)
             rows = conn.execute(
                 f"SELECT id, path, filename, tags, description, clip_embedding, "
                 f"wd_chars, wd_chars_ko, wd_general, hidden, favorite, user_tags "
@@ -667,9 +673,10 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         limit: int = Query(40, ge=1, le=200),
         view: str = Query("all", description="all | favorite | hidden"),
         no_char: int = Query(0), no_user: int = Query(0), no_ai: int = Query(0),
+        folder: int = Query(0, description="폴더 스코프 folder_id (0 = 전체)"),
     ):
         conn = get_db()
-        where = _view_filter(view, bool(no_char), bool(no_user), bool(no_ai))
+        where = _view_filter(view, bool(no_char), bool(no_user), bool(no_ai), folder)
         rows = conn.execute(
             f"SELECT id, path, filename, tags, description, wd_chars_ko, wd_chars, hidden, favorite, user_tags "
             f"FROM images WHERE {where} ORDER BY favorite DESC, indexed_at DESC LIMIT ? OFFSET ?",
@@ -1011,7 +1018,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
             # 5. aliases 메모리 갱신 + DB 재매핑 (사용자 편집은 보존되는 새 relocalize 사용)
             aliases_state["data"] = wd14_tagger.load_aliases(ALIASES_PATH)
             _backup_db(db_path, "auto_translate")
-            relocalize(db_path, aliases_state["data"], skip_unmapped=True)
+            relocalize(db_path, aliases_state["data"], skip_unmapped=False)
 
             index_state["status"] = "done"
             index_state["finished_at"] = time.time()
@@ -1039,7 +1046,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         _backup_db(db_path, "relocalize")
         try:
             aliases_state["data"] = wd14_tagger.load_aliases(ALIASES_PATH)
-            result = relocalize(db_path, aliases_state["data"], skip_unmapped=True)
+            result = relocalize(db_path, aliases_state["data"], skip_unmapped=False)
             return {
                 "status": "done",
                 "updated": result["updated"],
@@ -1055,6 +1062,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         limit: int = Query(40, ge=1, le=200),
         view: str = Query("all"),
         no_char: int = Query(0), no_user: int = Query(0), no_ai: int = Query(0),
+        folder: int = Query(0, description="폴더 스코프 folder_id (0 = 전체)"),
     ):
         conn = get_db()
         target = conn.execute(
@@ -1068,7 +1076,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         rows = conn.execute(
             f"SELECT id, path, filename, tags, description, clip_embedding, "
             f"wd_chars, wd_chars_ko, hidden, favorite, user_tags "
-            f"FROM images WHERE {_view_filter(view, bool(no_char), bool(no_user), bool(no_ai))} "
+            f"FROM images WHERE {_view_filter(view, bool(no_char), bool(no_user), bool(no_ai), folder)} "
             f"AND id != ? AND clip_embedding IS NOT NULL",
             (image_id,),
         ).fetchall()
@@ -1409,10 +1417,60 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
             "wd_total_missing": wd_total_missing,
         }
 
+    @app.delete("/api/folders/{folder_id}")
+    async def remove_folder(folder_id: int):
+        """등록 폴더 해제 — folders 행 + 소속 images 행 + 썸네일 캐시 삭제.
+
+        디스크의 원본 이미지 파일은 절대 건드리지 않는다. DB 등록/인덱스만
+        정리해서, 원본이 사라졌는데 검색엔 계속 잡히는 유령 행을 예방·제거한다.
+        """
+        if index_lock.locked():
+            return JSONResponse({"error": "다른 작업이 진행 중입니다"}, status_code=409)
+        conn = get_db()
+        frow = conn.execute(
+            "SELECT id, path FROM folders WHERE id=?", (folder_id,)
+        ).fetchone()
+        if not frow:
+            conn.close()
+            return JSONResponse({"error": "등록된 폴더가 아닙니다"}, status_code=404)
+        _backup_db(db_path, "remove_folder")
+        img_ids = [
+            r["id"] for r in conn.execute(
+                "SELECT id FROM images WHERE folder_id=?", (folder_id,)
+            ).fetchall()
+        ]
+        try:
+            conn.execute("BEGIN")
+            conn.execute("DELETE FROM images WHERE folder_id=?", (folder_id,))
+            conn.execute("DELETE FROM folders WHERE id=?", (folder_id,))
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            conn.close()
+            return JSONResponse({"error": f"삭제 실패: {e}"}, status_code=500)
+        conn.close()
+
+        # 썸네일 캐시 정리 (원본 이미지 파일은 손대지 않음)
+        thumbs_removed = 0
+        for iid in img_ids:
+            for cache in THUMB_DIR.glob(f"{iid}_*.webp"):
+                try:
+                    cache.unlink()
+                    thumbs_removed += 1
+                except OSError:
+                    pass
+
+        return {
+            "status": "done",
+            "path": frow["path"],
+            "images_deleted": len(img_ids),
+            "thumbs_removed": thumbs_removed,
+        }
+
     THUMB_DIR = Path("thumbnails")
     THUMB_SIZE = 480  # 카드 그리드는 240px 표시, retina 대비 2x
     THUMB_MAX_FRAMES = 60  # 너무 긴 GIF는 프레임 캡 (인코딩 시간 보호)
-    THUMB_VERSION = "v2"  # GIF 애니메이션 보존 도입 — 옛 정적 캐시 무효화
+    THUMB_VERSION = "v3"  # 정사각 cover 크롭 도입(세로 긴 이미지 뭉개짐 해결) — 옛 캐시 무효화
 
     def _make_thumbnail(src: Path, cache: Path) -> bool:
         """src를 thumb_size 이내로 리사이즈해 cache에 WebP 저장.
@@ -1421,7 +1479,7 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         해상도/품질 다운으로 용량 감소 (GIF 대비 30~70%).
         실패 시 False 반환 → caller가 원본 fallback.
         """
-        from PIL import Image as PILImage
+        from PIL import Image as PILImage, ImageOps
         try:
             img = PILImage.open(src)
             n_frames = getattr(img, "n_frames", 1)
@@ -1436,7 +1494,8 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
                     frame = img.copy()
                     if frame.mode not in ("RGB", "RGBA"):
                         frame = frame.convert("RGBA")
-                    frame.thumbnail((THUMB_SIZE, THUMB_SIZE), PILImage.LANCZOS)
+                    # 긴 변 맞춤 대신 정사각으로 cover + 중앙 크롭 → 세로/가로 긴 이미지도 카드에 꽉 차게(선명)
+                    frame = ImageOps.fit(frame, (THUMB_SIZE, THUMB_SIZE), PILImage.LANCZOS)
                     frames.append(frame)
                     durations.append(img.info.get("duration", 100))
                 frames[0].save(
@@ -1449,9 +1508,10 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
                     method=4,
                 )
             else:
-                img.thumbnail((THUMB_SIZE, THUMB_SIZE), PILImage.LANCZOS)
                 if img.mode not in ("RGB", "RGBA"):
                     img = img.convert("RGB")
+                # cover + 중앙 크롭으로 정사각 썸네일 (카드가 정사각 grid라 짧은 변 업스케일로 뭉개지던 문제 해결)
+                img = ImageOps.fit(img, (THUMB_SIZE, THUMB_SIZE), PILImage.LANCZOS)
                 img.save(cache, "WEBP", quality=80, method=4)
             return True
         except Exception:
@@ -1459,7 +1519,9 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
             return False
 
     @app.get("/thumbs/{image_id}")
-    async def serve_thumbnail(image_id: int):
+    def serve_thumbnail(image_id: int):
+        # sync def → Starlette가 스레드풀에서 실행. PIL 인코딩/파일 IO가 이벤트 루프를
+        # 막지 않아 그리드의 동시 썸네일 요청이 직렬화되지 않고 병렬로 처리됨.
         conn = get_db()
         row = conn.execute("SELECT path, mtime FROM images WHERE id=?", (image_id,)).fetchone()
         conn.close()
@@ -1481,7 +1543,8 @@ def create_app(db_path: str, initial_folder: Optional[str] = None) -> FastAPI:
         return FileResponse(str(cache), media_type="image/webp")
 
     @app.get("/images/{file_path:path}")
-    async def serve_image(file_path: str):
+    def serve_image(file_path: str):
+        # sync def → 스레드풀 실행 (원본 파일 IO가 이벤트 루프를 막지 않도록)
         decoded = urllib.parse.unquote(file_path)
         try:
             resolved = Path(decoded).resolve()

@@ -567,6 +567,17 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+        .folder-path-btn {
+            display: block;
+            width: 100%;
+            max-width: 100%;
+            text-align: left;
+            background: none;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+        }
+        .folder-path-btn:hover { text-decoration: underline; }
         .folder-meta {
             color: var(--text-muted);
             font-size: 12px;
@@ -578,12 +589,99 @@
             gap: 6px;
             flex-shrink: 0;
         }
+        /* 폴더 액션 버튼 — 전역 * {padding:0} 리셋 때문에 명시 필요. toolbar 버튼과 톤 통일 */
+        .folder-actions button {
+            padding: 0 12px;
+            height: 30px;
+            border: 1px solid var(--border);
+            background: var(--bg-elev);
+            color: var(--text-dim);
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+        }
+        .folder-actions button:hover {
+            background: var(--bg-card);
+            color: var(--text);
+            border-color: var(--border-strong);
+        }
+        .folder-actions button.folder-remove-btn:hover {
+            background: var(--error);
+            color: #fff;
+            border-color: var(--error);
+        }
 
         main {
             max-width: 1400px;
             margin: 0 auto;
             padding: 32px 28px 64px;
         }
+
+        /* 폴더 스코프 배너 — 활성 필터 신호를 액센트로. active chip이 노란 pill인 것과 같은 언어 */
+        .scope-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 9px 14px;
+            background: rgba(255, 221, 136, 0.08);
+            border: 1px solid rgba(255, 221, 136, 0.22);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+        }
+        .scope-bar .scope-tag {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--accent);
+            flex-shrink: 0;
+        }
+        .scope-bar .scope-root {
+            background: none;
+            border: none;
+            padding: 0;
+            color: var(--text-muted);
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .scope-bar .scope-root:hover { color: var(--text); text-decoration: underline; }
+        .scope-bar .scope-sep { color: var(--text-muted); }
+        .scope-bar .scope-name {
+            color: var(--accent);
+            font-weight: 700;
+            font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+            max-width: 480px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .scope-bar .scope-count {
+            margin-left: auto;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+        .scope-bar .scope-clear {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            padding: 0;
+            background: none;
+            border: 1px solid rgba(255, 221, 136, 0.35);
+            border-radius: 50%;
+            color: var(--accent);
+            font-size: 11px;
+            line-height: 1;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background 0.12s, color 0.12s, border-color 0.12s;
+        }
+        .scope-bar .scope-clear:hover { background: var(--error); border-color: var(--error); color: #fff; }
 
         .status {
             text-align: center;
@@ -923,6 +1021,10 @@
         .card-info .card-tags .tag { flex-shrink: 0; }
 
         .tag {
+            --x-fade: var(--tag-bg);
+            position: relative;
+            display: inline-flex;
+            align-items: center;
             background: var(--tag-bg);
             color: var(--text);
             padding: 3px 10px;
@@ -931,36 +1033,45 @@
             line-height: 1.5;
             font-weight: 400;
         }
+        /* --x-fade는 X 뒤 그라디언트가 글자를 가리도록 "불투명"이어야 함.
+           칩 배경(반투명 틴트)을 모달 배경(--bg-card #272727)에 합성한 불투명 근사색 사용 */
         .tag.char {
+            --x-fade: #4A3739;
             background: var(--char-bg);
             color: var(--char);
             font-weight: 600;
         }
         .tag.work {
+            --x-fade: #344434;
             background: var(--work-bg);
             color: var(--work);
         }
         .tag.user {
+            --x-fade: #393944;
             background: var(--user-bg);
             color: var(--user);
             font-weight: 600;
         }
+        /* X는 자리를 예약하지 않고(갭 없음) 칩 오른쪽 위에 절대배치로 겹쳐 뜬다.
+           칩 배경색 그라디언트를 깔아 밑 글자가 X 아래로 자연스럽게 사라짐 → 리플로우/갭 둘 다 없음 */
         .tag .tag-x {
-            display: inline-block;
-            margin-left: 0;
-            max-width: 0;
-            overflow: hidden;
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            padding: 0 8px 0 14px;
+            border-radius: var(--radius-pill);
+            background: linear-gradient(to right, transparent, var(--x-fade) 45%);
+            color: inherit;
             opacity: 0;
             cursor: pointer;
             font-weight: 700;
             white-space: nowrap;
-            transition: max-width 0.18s ease, margin-left 0.18s ease, opacity 0.15s ease;
+            transition: opacity 0.12s ease;
         }
-        .tag:hover .tag-x {
-            max-width: 18px;
-            margin-left: 6px;
-            opacity: 0.65;
-        }
+        .tag:hover .tag-x { opacity: 0.85; }
         .tag .tag-x:hover { opacity: 1; color: var(--error); }
         .card-info .tag.clickable {
             cursor: pointer;
@@ -1505,6 +1616,14 @@
 </header>
 
 <main>
+    <div id="scopeBar" class="scope-bar" style="display:none">
+        <span class="scope-tag">폴더</span>
+        <button class="scope-root" onclick="clearScope()" title="전체 이미지로 돌아가기">전체</button>
+        <span class="scope-sep">›</span>
+        <span class="scope-name" id="scopeName"></span>
+        <span class="scope-count" id="scopeCount"></span>
+        <button class="scope-clear" onclick="clearScope()" title="이 폴더 스코프 해제 (전체로)">✕</button>
+    </div>
     <div id="grid" class="grid"></div>
     <button id="loadMore" class="load-more" style="display:none" onclick="loadMore()">더 보기</button>
     <div id="status" class="status status-bottom"></div>
@@ -1644,12 +1763,63 @@ let currentMode = 'browse';
 let currentView = 'all';
 const filterFlags = { no_char: false, no_user: false, no_ai: false };
 
+// 폴더 스코프 — 세션 변수에만 존재. 새로고침하면 null(전체)로 리셋된다.
+let scopeFolder = null;      // null = 전체, 숫자 = folders.id
+let scopeFolderPath = '';    // breadcrumb 표시용 경로
+
 function filterQueryString() {
     const parts = [];
     if (filterFlags.no_char) parts.push('no_char=1');
     if (filterFlags.no_user) parts.push('no_user=1');
     if (filterFlags.no_ai) parts.push('no_ai=1');
+    if (scopeFolder) parts.push('folder=' + scopeFolder);
     return parts.length ? '&' + parts.join('&') : '';
+}
+
+// 폴더 스코프 진입/해제 — 상태 갱신 → breadcrumb 다시 그리기 → 현재 뷰 재실행
+function setScope(folderId, folderPath) {
+    scopeFolder = folderId;
+    scopeFolderPath = folderPath || '';
+    renderScopeBar();
+    toggleFolderPanel(true);  // 패널 닫기
+    rerunCurrentView();
+}
+
+function clearScope() {
+    if (!scopeFolder) return;
+    scopeFolder = null;
+    scopeFolderPath = '';
+    renderScopeBar();
+    rerunCurrentView();
+}
+
+function renderScopeBar() {
+    const bar = document.getElementById('scopeBar');
+    if (!scopeFolder) { bar.style.display = 'none'; return; }
+    // 경로의 마지막 폴더명만 강조, 전체 경로는 title로
+    const name = scopeFolderPath.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || scopeFolderPath;
+    const nameEl = document.getElementById('scopeName');
+    nameEl.textContent = name;
+    nameEl.title = scopeFolderPath;
+    bar.style.display = '';
+}
+
+function setScopeCount(n) {
+    const el = document.getElementById('scopeCount');
+    if (el) el.textContent = (n == null) ? '' : `${n.toLocaleString()}장`;
+}
+
+// 현재 모드(검색/브라우즈)를 그대로 유지하며 스코프만 반영해 다시 로드
+function rerunCurrentView() {
+    if (currentMode === 'search' && currentQuery) {
+        doSearch();
+    } else {
+        currentMode = 'browse';
+        browseOffset = 0;
+        grid.innerHTML = '';
+        cardData = [];
+        loadBrowse();
+    }
 }
 
 function toggleFilter(name) {
@@ -1867,6 +2037,10 @@ function goHome() {
     // 필터 칩 모두 해제
     filterFlags.no_char = filterFlags.no_user = filterFlags.no_ai = false;
     updateFilterUI();
+    // 폴더 스코프도 해제
+    scopeFolder = null;
+    scopeFolderPath = '';
+    renderScopeBar();
     // 그리드 초기화 + 새로 로드
     browseOffset = 0;
     grid.innerHTML = '';
@@ -1904,11 +2078,16 @@ async function doSearch() {
         const data = await res.json();
 
         if (data.results.length === 0) {
+            setScopeCount(0);
             const scanned = data.scanned ?? data.total ?? 0;
-            status.innerHTML = `"${escapeHTML(q)}" 매치되는 태그/설명/캐릭터 없음 (검색 대상 ${scanned}장)<br><span style="font-size:12px;color:var(--text-muted)">힌트: 카드 클릭 → 모달 → [내 태그]에 직접 단어를 추가하면 다음부터 검색됩니다. 한국어 의미 검색은 지원하지 않습니다 — 텍스트가 매치되어야 합니다.</span>`;
+            const scopeHint = scopeFolder
+                ? ` <button onclick="clearScope()" style="background:none;border:none;color:var(--text);text-decoration:underline;cursor:pointer;padding:0;font-size:inherit">전체에서 다시 검색</button>`
+                : '';
+            status.innerHTML = `"${escapeHTML(q)}" 매치되는 태그/설명/캐릭터 없음 (검색 대상 ${scanned}장)${scopeHint}<br><span style="font-size:12px;color:var(--text-muted)">힌트: 카드 클릭 → 모달 → [내 태그]에 직접 단어를 추가하면 다음부터 검색됩니다. 한국어 의미 검색은 지원하지 않습니다 — 텍스트가 매치되어야 합니다.</span>`;
             return;
         }
 
+        setScopeCount(scopeFolder ? data.results.length : null);
         status.textContent = `"${q}" 검색 결과 ${data.results.length}개`;
         data.results.forEach(item => grid.appendChild(createCard(item, true)));
     } catch (err) {
@@ -1942,6 +2121,11 @@ async function loadBrowse() {
         const data = await res.json();
 
         if (data.results.length === 0 && browseOffset === 0) {
+            setScopeCount(0);
+            if (scopeFolder) {
+                status.innerHTML = '이 폴더에 조건에 맞는 이미지가 없습니다. <button onclick="clearScope()" style="background:none;border:none;color:var(--text);text-decoration:underline;cursor:pointer;padding:0;font-size:inherit">전체에서 보기</button>';
+                return;
+            }
             const anyFilter = filterFlags.no_char || filterFlags.no_user || filterFlags.no_ai;
             const msg = anyFilter ? '필터 조건에 맞는 이미지가 없습니다.'
                 : currentView === 'favorite' ? '즐겨찾기한 이미지가 없습니다. 카드의 ★ 버튼으로 추가하세요.'
@@ -1950,6 +2134,8 @@ async function loadBrowse() {
             status.textContent = msg;
             return;
         }
+
+        if (browseOffset === 0) setScopeCount(scopeFolder ? data.total : null);
 
         if (browseOffset === 0) {
             const baseLabel = currentView === 'favorite' ? '즐겨찾기'
@@ -2020,7 +2206,7 @@ function createCard(item, showScore) {
 
     const userTags = parseTags(item.user_tags);
     const charTags = parseTags(item.wd_chars_ko);
-    const tags = parseTags(item.tags);
+    const tags = aiTagsMinusChars(parseTags(item.tags), charTags);
     const tagClick = (t) => `onclick="event.stopPropagation(); searchByTag('${escapeAttr(t)}')"`;
     const userHTML = userTags.slice(0, 4).map(t => `<span class="tag user clickable" ${tagClick(t)} title="이 태그로 검색">${escapeHTML(t)}</span>`).join('');
     const charHTML = charTags.slice(0, 3).map(t => `<span class="tag char clickable" ${tagClick(t)} title="이 태그로 검색">${escapeHTML(t)}</span>`).join('');
@@ -2061,6 +2247,12 @@ function createCard(item, showScore) {
 
 function parseTags(s) {
     return s ? s.split(',').map(t => t.trim()).filter(Boolean) : [];
+}
+
+// AI 태그에서 캐릭터 이름과 겹치는 것 제거 (표시 시점). 데이터는 보존 — 캐릭터명이 바뀌어도 자동 적응.
+function aiTagsMinusChars(aiTags, charTags) {
+    const cs = new Set(charTags.map(t => t.trim().toLowerCase()));
+    return aiTags.filter(t => !cs.has(t.trim().toLowerCase()));
 }
 
 async function toggleFavorite(id, btn) {
@@ -2144,7 +2336,7 @@ function renderModalBody(item) {
     const userTags = parseTags(item.user_tags);
     const charTags = parseTags(item.wd_chars_ko);
     const charsEn = parseTags(item.wd_chars);
-    const tags = parseTags(item.tags);
+    const tags = aiTagsMinusChars(parseTags(item.tags), charTags);
     const userHTML = renderUserTagChips(item.id, userTags);
     const charHTML = renderCharTagChips(item.id, charTags);
     const tagHTML = renderAiTagChips(item.id, tags);
@@ -3302,7 +3494,7 @@ async function removeTagFromField(imageId, field, tag, el) {
         }
         const userT = parseTags(cardData[itemIdx].user_tags || '');
         const charT = parseTags(cardData[itemIdx].wd_chars_ko || '');
-        const aiT   = parseTags(cardData[itemIdx].tags || '');
+        const aiT   = aiTagsMinusChars(parseTags(cardData[itemIdx].tags || ''), charT);
         _syncCardChipsAfterPromote(imageId, userT, charT, aiT);
     } catch (e) {
         alert('태그 제거 실패: ' + e.message);
@@ -3376,7 +3568,7 @@ async function commitTagEdit(imageId, field, oldTag, newTag) {
         // 카드 그리드 칩 동기화 (user/char/AI 모두 갱신)
         const userT = parseTags(cardData[itemIdx].user_tags || '');
         const charT = parseTags(cardData[itemIdx].wd_chars_ko || '');
-        const aiT   = parseTags(cardData[itemIdx].tags || '');
+        const aiT   = aiTagsMinusChars(parseTags(cardData[itemIdx].tags || ''), charT);
         _syncCardChipsAfterPromote(imageId, userT, charT, aiT);
     } catch (e) {
         alert('편집 실패: ' + e.message);
@@ -3660,12 +3852,13 @@ async function loadFolders() {
         list.innerHTML = headerHTML + data.folders.map(f => `
             <div class="folder-item">
                 <div class="folder-info">
-                    <div class="folder-path">${escapeHTML(f.path)}</div>
+                    <button class="folder-path folder-path-btn" onclick="setScope(${f.id}, '${escapeAttr(f.path)}')" title="이 폴더만 보기">${escapeHTML(f.path)}</button>
                     <div class="folder-meta">${f.image_count}장 · 마지막 추가: ${f.last_indexed_at || '—'}${f.wd_missing > 0 ? ` · 캐릭터 인식 안 됨 ${f.wd_missing}장` : ''}</div>
                 </div>
-                <div style="display:flex;gap:6px">
+                <div class="folder-actions">
                     <button onclick="useFolder('${escapeAttr(f.path)}')">경로 채우기</button>
                     <button onclick="reindexFolder('${escapeAttr(f.path)}')" title="이 폴더의 모든 이미지를 다시 분석">전체 다시 분석</button>
+                    <button class="folder-remove-btn" onclick="removeFolder(${f.id}, '${escapeAttr(f.path)}', ${f.image_count})" title="이 폴더 등록 해제 (원본 파일은 그대로)">제거</button>
                 </div>
             </div>
         `).join('');
@@ -3677,6 +3870,27 @@ async function loadFolders() {
 function useFolder(path) {
     document.getElementById('folderInput').value = path;
     document.getElementById('folderInput').focus();
+}
+
+async function removeFolder(folderId, path, imageCount) {
+    if (!confirm(
+        `이 폴더를 Taggu에서 제거합니다.\n` +
+        `· 이미지 ${imageCount}장의 인덱스(태그·설명·분석)가 DB에서 삭제됩니다\n` +
+        `· 디스크의 원본 이미지 파일은 그대로 둡니다\n\n${path}`
+    )) return;
+    try {
+        const res = await fetch(`/api/folders/${folderId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok) {
+            alert(data.error || '제거 실패');
+            return;
+        }
+        // 제거된 폴더가 현재 스코프였다면 전체 보기로 복귀 (패널은 그대로 유지)
+        if (typeof scopeFolder !== 'undefined' && scopeFolder === folderId) clearScope();
+        await loadFolders();
+    } catch (e) {
+        alert('제거 실패: ' + e);
+    }
 }
 
 function toggleToolbar() {
@@ -3707,8 +3921,9 @@ function toggleDevMode(on) {
     localStorage.setItem('taggu.devMode', on ? 'true' : 'false');
 }
 
-function toggleFolderPanel() {
+function toggleFolderPanel(forceClose) {
     const p = document.getElementById('folderPanel');
+    if (forceClose) { p.style.display = 'none'; return; }
     p.style.display = p.style.display === 'none' ? 'block' : 'none';
 }
 
