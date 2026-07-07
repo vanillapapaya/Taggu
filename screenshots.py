@@ -78,24 +78,39 @@ def _restore_hidden(ids):
     con.close()
 
 
-def _test_folder(url):
-    """스코프 데모용 폴더 (경로에 '그림 모음' 포함) id/path 반환. 없으면 첫 폴더."""
+def _test_folder(url, prefer=None):
+    """스코프 데모용 폴더 id/path 반환.
+
+    prefer(경로 substr)가 주어지면 그걸 포함하는 폴더 우선, 없으면 '그림 모음',
+    그것도 없으면 첫 폴더.
+    """
     try:
         data = _api(url, "/api/folders")
         folders = data.get("folders", [])
         if not folders:
             return None, None
-        for f in folders:
-            if "그림 모음" in f["path"]:
-                return f["id"], f["path"]
+        for want in ([prefer] if prefer else []) + ["그림 모음"]:
+            for f in folders:
+                if want in f["path"]:
+                    return f["id"], f["path"]
         return folders[0]["id"], folders[0]["path"]
     except Exception:
         return None, None
 
 
-def build_shots(url, exclude=None):
+def _folders_except(url, only_substr):
+    """only_substr를 '포함하지 않는' 폴더들의 경로 리스트. --only-folder용 exclude 계산."""
+    try:
+        data = _api(url, "/api/folders")
+        return [f["path"] for f in data.get("folders", []) if only_substr not in f["path"]]
+    except Exception:
+        return []
+
+
+def build_shots(url, exclude=None, scope_substr=None, search_term="소녀"):
     """각 컷: (파일명, 제목, 캡션, 준비 JS, 정착 대기 ms, 이미지 로딩 대기 여부)."""
-    fid, fpath = _test_folder(url)
+    fid, fpath = _test_folder(url, prefer=scope_substr)
+    term_js = search_term.replace("\\", "\\\\").replace("'", "\\'")
     fpath_js = (fpath or "").replace("\\", "\\\\").replace("'", "\\'")
 
     # 폴더 목록 컷: 제외 대상 폴더 행을 클라이언트에서 제거(이름 노출 방지)
@@ -113,7 +128,7 @@ def build_shots(url, exclude=None):
 
         ("02-search", "한국어 검색",
          "검색창에 한국어를 입력하면 WD14 태그·AI 설명·캐릭터·내 태그 텍스트에 매치되는 이미지를 찾는다.",
-         "document.getElementById('searchInput').value='소녀'; doSearch();", 1500, False),
+         f"document.getElementById('searchInput').value='{term_js}'; doSearch();", 1500, False),
 
         ("03-detail-modal", "이미지 상세 — 캐릭터·태그·한국어 설명",
          "카드를 열면 캐릭터(성+이름), AI 태그, Qwen이 생성한 한국어 설명, 내 태그를 한 화면에서 보고 편집한다.",
@@ -154,9 +169,9 @@ def build_shots(url, exclude=None):
     return shots
 
 
-def capture(url, headless=True, exclude=None):
+def capture(url, headless=True, exclude=None, scope_substr=None, search_term="소녀"):
     SHOT_DIR.mkdir(parents=True, exist_ok=True)
-    shots = build_shots(url, exclude)
+    shots = build_shots(url, exclude, scope_substr, search_term)
     hidden_ids = _hide_excluded(exclude)
     if hidden_ids:
         print(f"  제외 폴더 이미지 {len(hidden_ids)}장 임시 숨김")
@@ -206,7 +221,7 @@ def update_readme(done):
         print("README.md 없음 — 삽입 건너뜀")
         return
     rel = "docs/screenshots"
-    lines = [MARK_START, "", "## 스크린샷", ""]
+    lines = [MARK_START, "", "## 기능 소개", ""]
     for file, title, caption in done:
         lines.append(f"### {title}")
         lines.append("")
@@ -223,8 +238,8 @@ def update_readme(done):
         post = text.split(MARK_END)[1]
         new = pre.rstrip() + "\n\n" + block + "\n" + post
     else:
-        # '## 라이선스' 앞에 삽입, 없으면 문서 끝
-        anchor = "\n## 라이선스"
+        # 마커가 없으면 '## 기능'(기능 소개는 개요 다음·기능 앞) 자리에 삽입, 없으면 문서 끝
+        anchor = "\n## 기능"
         if anchor in text:
             i = text.index(anchor)
             new = text[:i].rstrip() + "\n\n" + block + "\n" + text[i:]
@@ -241,10 +256,23 @@ def main():
     ap.add_argument("--show", action="store_true", help="브라우저 창 표시(디버그)")
     ap.add_argument("--exclude-folder", action="append", default=[], metavar="SUBSTR",
                     help="경로에 이 문자열이 들어간 폴더를 캡처에서 숨김(이미지 임시 hidden + 폴더 목록 행 제거). 반복 가능")
+    ap.add_argument("--only-folder", metavar="SUBSTR",
+                    help="이 문자열이 경로에 든 폴더의 이미지만 캡처에 나오게 함(나머지 폴더는 전부 숨김). "
+                         "스코프/폴더목록 컷도 이 폴더 기준. 데모 폴더로 공개용 스크린샷 찍을 때 사용.")
+    ap.add_argument("--search-term", default="소녀", metavar="WORD",
+                    help="검색 컷(02)에서 입력할 한국어 검색어. 기본 '소녀'. 데모 폴더에 맞춰 지정.")
     args = ap.parse_args()
 
+    exclude = list(args.exclude_folder)
+    scope_substr = args.only_folder
+    if args.only_folder:
+        others = _folders_except(args.url, args.only_folder)
+        exclude += others
+        print(f"--only-folder '{args.only_folder}' → 나머지 폴더 {len(others)}곳 숨김")
+
     print(f"Taggu 스크린샷 — {args.url}")
-    done = capture(args.url, headless=not args.show, exclude=args.exclude_folder)
+    done = capture(args.url, headless=not args.show, exclude=exclude,
+                   scope_substr=scope_substr, search_term=args.search_term)
     if not done:
         print("캡처된 컷 없음 — 서버가 떠 있는지 확인")
         sys.exit(1)
