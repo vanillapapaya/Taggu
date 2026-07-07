@@ -23,6 +23,7 @@
 - [트러블슈팅](#트러블슈팅)
 - [비슷한 도구](#비슷한-도구)
 - [한계](#한계)
+- [스크린샷](#스크린샷)
 - [라이선스](#라이선스)
 
 ## 개요
@@ -64,6 +65,13 @@
 - 칩 더블클릭으로 인라인 편집.
 - 칩의 제거 버튼으로 삭제.
 - Ctrl+클릭 / Shift+클릭으로 다중 선택 후 즐겨찾기·숨김·태그 일괄 추가.
+
+### 폴더 관리
+
+여러 폴더를 등록해 인덱싱할 수 있고, 관리 도구의 폴더 목록에서 다룬다.
+
+- **폴더 스코프** — 폴더 경로를 클릭하면 그 폴더의 이미지만 본다. 상단 배너로 현재 스코프를 항상 표시하고, 검색·랜덤·필터가 모두 그 폴더 안으로 좁혀진다. 배너에서 한 번에 전체로 복귀.
+- **폴더 제거** — 등록을 해제하고 그 폴더 이미지의 인덱스(태그·설명·분석)와 썸네일 캐시를 DB에서 삭제한다. **디스크의 원본 이미지 파일은 건드리지 않는다** — 검색 인덱스만 정리. 원본을 탐색기에서 지웠는데 검색엔 계속 잡히는 유령 항목을 청소할 때도 쓴다. 삭제 전 DB를 자동 백업.
 
 ### 유튜브 짤 생성
 
@@ -264,6 +272,42 @@ uv pip install -r requirements.txt pyinstaller
 | Shift+클릭 | 다중 선택 |
 | Ctrl+F5 | 강제 새로고침 |
 
+### 캐릭터 이름 별칭 (`character_aliases.json`)
+
+WD14는 캐릭터를 **Danbooru 표준 태그(romaji)**로 인식한다 — 예: `mitake_ran`, `hatsune_miku`. 이 파일은 그 romaji를 화면에 보일 **한국어 이름으로 매핑하는 사전**이다. 모델이 아니라 손으로 관리하는 데이터라, 원하는 캐릭터를 자유롭게 추가·수정하면 된다.
+
+동작 방식:
+
+- 별칭이 **있으면** 한국어 이름으로 캐릭터 태그에 표시 (`mitake_ran` → `미타케 란`)
+- 별칭이 **없으면** romaji를 그대로 표시 (`kirisame_marisa` → `kirisame marisa`). 인식된 캐릭터가 사라지지 않으니, 자주 뜨는 romaji를 골라 한 줄씩 별칭을 채워 나가면 된다.
+
+파일 구조:
+
+```json
+{
+  "_works": {
+    "bang_dream!": "뱅드림"          // 작품(시리즈) 태그 → 한국어
+  },
+  "characters": {
+    "mitake_ran": "미타케 란",        // 캐릭터 태그(romaji) → 한국어 이름
+    "hatsune_miku": "하츠네 미쿠"
+  }
+}
+```
+
+편집 규칙:
+
+- **키**는 Danbooru 태그의 underscore 형태(소문자). 작품 접미사 `_(work)`는 자동으로 떼고 조회하므로 붙이지 않아도 된다.
+- 조회는 대소문자 무시.
+- **값**은 표시할 한국어 이름. 컨벤션은 **성+이름**(예: `토야마 카스미`). 서양식 이름(동방 등)은 원래 순서대로(예: `remilia_scarlet` → `레밀리아 스칼렛`).
+- 캐릭터의 정확한 romaji 태그명은 [Danbooru](https://danbooru.donmai.us/wiki_pages/tag_groups:character) 위키나, 이미 인덱싱된 이미지의 **캐릭터(원본)** 필드에서 확인할 수 있다.
+
+편집 후 반영:
+
+1. 파일을 저장한다.
+2. **재매핑(relocalize)**을 실행한다 — 유지보수 메뉴의 버튼 또는 `POST /api/relocalize`. 이미지 재분석 없이 DB의 캐릭터 태그만 새 별칭으로 다시 매핑하므로 빠르다(수백 장도 1초 내외). 손으로 직접 추가한 캐릭터 태그는 보존된다.
+3. 이후 새로 인덱싱하는 이미지는 자동으로 갱신된 별칭을 사용한다.
+
 ## API 레퍼런스
 
 베이스: `https://localhost:8000` (또는 `http://`)
@@ -283,12 +327,21 @@ uv pip install -r requirements.txt pyinstaller
 
 | Method | Path | 설명 |
 |---|---|---|
-| GET | `/api/search?q=&limit=&view=` | 텍스트 검색 (한국어 IME 안전) |
-| GET | `/api/random?n=&view=` | 무작위 |
-| GET | `/api/browse?offset=&limit=&view=` | 페이지네이션 브라우즈 |
+| GET | `/api/search?q=&limit=&view=&folder=` | 텍스트 검색 (한국어 IME 안전) |
+| GET | `/api/random?n=&view=&folder=` | 무작위 |
+| GET | `/api/browse?offset=&limit=&view=&folder=` | 페이지네이션 브라우즈 |
 | GET | `/api/similar/{id}?limit=&view=` | CLIP 유사 이미지 |
 | GET | `/api/counts` | {all, favorite, hidden} |
 | GET | `/api/info` | 전체 통계 |
+
+`folder=`는 폴더 스코프용 `folder_id`(0 = 전체). `/api/folders`가 반환하는 각 폴더의 `id`를 넘긴다.
+
+### 폴더
+
+| Method | Path | 설명 |
+|---|---|---|
+| GET | `/api/folders` | 등록 폴더 목록 (id·경로·이미지 수·마지막 인덱싱) |
+| DELETE | `/api/folders/{id}` | 폴더 등록 해제 + 소속 이미지 인덱스·썸네일 캐시 삭제 (원본 파일 보존). 삭제 전 DB 백업 |
 
 ### 이미지 상태 / 태그
 
@@ -361,6 +414,79 @@ Taggu의 차이는 다음 정도다.
 - **한국어 우선** — UI/태그/프롬프트 전부 한국어. 영어 환경에서는 어색.
 - **애니/일러 편향** — WD14가 anime 데이터 학습이라 실사 사진의 캐릭터 인식은 약함.
 - **AI 모드 단일 선택** — 한 번에 한 모드로만 분석. 모드 비교/하이브리드 없음.
+
+<!-- SCREENSHOTS:START (screenshots.py가 자동 생성 — 수동 편집 금지) -->
+
+## 스크린샷
+
+### 갤러리 — 전체 보기
+
+![갤러리 — 전체 보기](docs/screenshots/01-gallery.png)
+
+인덱싱한 이미지를 정사각 썸네일 그리드로. 세로/가로 긴 이미지도 cover 크롭으로 균일하게 표시.
+
+### 한국어 검색
+
+![한국어 검색](docs/screenshots/02-search.png)
+
+검색창에 한국어를 입력하면 WD14 태그·AI 설명·캐릭터·내 태그 텍스트에 매치되는 이미지를 찾는다.
+
+### 이미지 상세 — 캐릭터·태그·한국어 설명
+
+![이미지 상세 — 캐릭터·태그·한국어 설명](docs/screenshots/03-detail-modal.png)
+
+카드를 열면 캐릭터(성+이름), AI 태그, Qwen이 생성한 한국어 설명, 내 태그를 한 화면에서 보고 편집한다.
+
+### 유사 이미지 검색 (CLIP)
+
+![유사 이미지 검색 (CLIP)](docs/screenshots/04-similar.png)
+
+CLIP 시각 임베딩 코사인 유사도로 '이것과 비슷한 이미지'를 찾는다.
+
+### 폴더별 보기
+
+![폴더별 보기](docs/screenshots/05-folder-scope.png)
+
+특정 폴더로 좁혀 그 폴더의 이미지만 표시. 상단 배너로 현재 스코프를 항상 표시하고 한 번에 전체로 복귀.
+
+### 필터 — 조건별 좁히기
+
+![필터 — 조건별 좁히기](docs/screenshots/06-filters.png)
+
+캐릭터/내 태그/AI 태그가 비어 있는 이미지만 골라내 후속 작업(태깅·정리) 대상을 빠르게 찾는다.
+
+### 등록된 폴더 목록
+
+![등록된 폴더 목록](docs/screenshots/07-folder-panel.png)
+
+인덱싱한 폴더 목록. 폴더별 이미지 수·마지막 추가 시각을 보고, 경로 클릭으로 그 폴더만 보기.
+
+### 사진 추가 · 관리 도구
+
+![사진 추가 · 관리 도구](docs/screenshots/08-toolbar.png)
+
+폴더 경로를 넣어 새 이미지 추가(인덱싱), 유튜브 짤 생성, 유지보수 도구 등에 접근.
+
+### AI 백엔드 설정
+
+![AI 백엔드 설정](docs/screenshots/09-settings.png)
+
+로컬 GPU(Qwen2.5-VL) 또는 OpenAI/Anthropic/Gemini API 중 선택하고 키를 검증·저장.
+
+### 유튜브 짤 생성
+
+![유튜브 짤 생성](docs/screenshots/10-youtube.png)
+
+유튜브 URL과 구간을 넣어 GIF/JPEG 짤을 만들고 바로 인덱싱까지 연결.
+
+### 사용 안내
+
+![사용 안내](docs/screenshots/11-guide.png)
+
+처음 사용자를 위한 단계별 가이드.
+
+<!-- SCREENSHOTS:END -->
+
 
 ## 라이선스
 

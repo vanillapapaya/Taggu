@@ -226,7 +226,9 @@ def _wd14_for_image(
     all_chars = chars + works
     chars_en_str = ",".join(all_chars)
     if aliases is not None:
-        ko = wd14_tagger.localize_tags(all_chars, aliases, skip_unmapped=True)
+        # skip_unmapped=False: 별칭 있으면 한국어, 없으면 romaji로라도 캐릭터 태그에 표시
+        # (인식된 캐릭터가 별칭 없다고 사라지지 않게 — 일관성)
+        ko = wd14_tagger.localize_tags(all_chars, aliases, skip_unmapped=False)
     else:
         ko = []
     chars_ko_str = ",".join(ko)

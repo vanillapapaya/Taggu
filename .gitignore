@@ -58,4 +58,6 @@ settings.json
 .claude/
 
 # 내부 설계 문서 (로컬 보관, 공개 X — README만 공개)
-docs/
+# docs/ 전체 비공개, 단 README가 참조하는 스크린샷만 예외로 추적
+docs/*
+!docs/screenshots/
