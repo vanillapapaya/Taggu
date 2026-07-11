@@ -30,11 +30,12 @@
 
 오래 모은 짤·이미지·스크린샷 폴더는 양이 많아지면 뭐가 어디 있는지 못 찾는다. Taggu는 그 폴더를 한 번 인덱싱해서 이미지마다 검색 가능한 메타데이터를 만들어 둔다.
 
-인덱싱 한 장당 세 가지 분석이 동시에 돈다.
+인덱싱 한 장당 네 가지 분석이 동시에 돈다.
 
 - **WD14 (ONNX, CPU)** — 애니/만화 캐릭터·작품 인식. `character_aliases.json`으로 영어 캐릭터명을 한국어로 매핑.
 - **Qwen2.5-VL (GPU 또는 API)** — 한국어 태그 5~10개 + 한 줄 설명 생성.
-- **CLIP ViT-B/32** — 512차원 시각 임베딩. 유사 이미지 검색에 사용.
+- **CLIP ViT-B/32** — 512차원 시각 의미 임베딩. 텍스트 검색 순위와 유사 이미지에 사용.
+- **CCIP (ONNX, CPU)** — 768차원 캐릭터 동일성 임베딩. 사용자 라벨로 신규·희귀 캐릭터를 학습하는 데 사용.
 
 결과는 SQLite(WAL 모드)에 저장하고, 브라우저 UI에서 검색·태그 편집·즐겨찾기 등을 한다.
 
@@ -129,7 +130,7 @@ CLIP 시각 임베딩 코사인 유사도로 '이것과 비슷한 이미지'를 
 
 | 모드 | 트리거 | 동작 |
 |---|---|---|
-| 텍스트 검색 | 검색창 입력 + Enter | WD14/태그/설명/내 태그 텍스트에 부분 매치. 한국어 IME 중복 검색 가드 포함 |
+| 텍스트 검색 | 검색창 입력 + Enter | 키워드(부분일치 AND)로 후보를 거른 뒤 CLIP 텍스트-이미지 유사도로 순위. 내 태그 매치에 가중치. 한국어 IME 중복 검색 가드 |
 | 랜덤 | `R` 키 또는 랜덤 버튼 | 5장 무작위 표시 |
 | 유사 이미지 | 모달의 유사 이미지 버튼 | CLIP 코사인 유사도 상위 K개 |
 
@@ -139,6 +140,10 @@ CLIP 시각 임베딩 코사인 유사도로 '이것과 비슷한 이미지'를 
 - 칩 더블클릭으로 인라인 편집.
 - 칩의 제거 버튼으로 삭제.
 - Ctrl+클릭 / Shift+클릭으로 다중 선택 후 즐겨찾기·숨김·태그 일괄 추가.
+
+### 캐릭터 학습 (few-shot)
+
+WD14가 못 잡는 신규·희귀 캐릭터를, 캐릭터 이름을 몇 번 달아주면 학습해 다른 이미지에도 자동으로 추천한다. 신경망 재훈련이 아니라 **프로토타입(centroid)** 방식이라 라벨 한 장으로도 동작하고 GPU 없이 즉시 갱신된다. 원리는 [데이터 파이프라인 → 캐릭터 학습](#캐릭터-학습-프로토타입) 참고.
 
 ### 폴더 관리
 
@@ -169,7 +174,7 @@ FastAPI (Uvicorn)
   /api/settings (GET/POST/test), /api/info ...
         │
         ├── providers.py      VLMProvider 추상화 + LocalQwen / OpenAI / Anthropic / Gemini
-        ├── index.py + wd14    WD14 ONNX, CLIP, scan/embedding/backfill/index_folder
+        ├── index.py + taggers WD14 · CCIP · CLIP, scan/embedding/backfill/index_folder
         └── SQLite (WAL)       images / folders 테이블, schema 자동 마이그레이션
 ```
 
@@ -181,6 +186,7 @@ Taggu/
 ├── index.py                # 인덱싱/백필/CLIP/디덥 헬퍼
 ├── providers.py            # VLMProvider 추상화 + 4종 구현
 ├── wd14_tagger.py          # WD14 ONNX 로더 + 한국어 alias 매핑
+├── ccip_tagger.py          # CCIP ONNX 임베딩 (캐릭터 few-shot 학습용)
 ├── desktop.py              # dev 모드 데스크톱 런처 (subprocess + Edge)
 ├── taggu_main.py           # 패키지 모드 단일 프로세스 런처
 ├── tray_launcher.py        # 시스템 트레이 런처
@@ -212,7 +218,8 @@ flowchart TD
     I --> J["VLM provider.analyze()"]
     J --> K["generate_embedding (CLIP 512d)"]
     K --> L["_wd14_for_image (캐릭터 인식 + 한국어 매핑)"]
-    L --> M["INSERT/UPDATE images"]
+    L --> P["CCIP 임베딩 (캐릭터 동일성 768d)"]
+    P --> M["INSERT/UPDATE images"]
     M --> N{"큐 비었나?"}
     N -->|아니오| J
     N -->|예| O["done"]
@@ -220,11 +227,26 @@ flowchart TD
 
 ### 텍스트 검색
 
-각 이미지의 `wd_chars_ko + tags + description + user_tags`를 소문자로 합친 문자열에, 검색어를 공백으로 나눈 모든 토큰이 포함되는지 본다. 매치된 항목은 `1 + 매치 길이`로 점수를 매겨 내림차순 정렬 후 상위 N개를 반환한다.
+**키워드 게이트 + 의미 랭킹 하이브리드**다. 검색어를 CLIP 텍스트 임베딩으로 바꾼 뒤 각 이미지에 대해:
+
+1. **후보 필터(게이트)** — 검색어를 공백으로 나눈 모든 토큰이 이미지의 텍스트 필드(`wd_chars_ko + tags + description + wd_chars + wd_general + user_tags + filename`)에 부분일치로 들어 있어야 후보가 된다. 하나라도 없으면 제외.
+2. **순위** — 최종 점수 = `CLIP 코사인 유사도 + 가중치`. 모든 토큰이 `user_tags`에 있으면 +0.7, 아무 필드에나 다 있으면 +0.5. 내림차순 정렬 후 상위 N개.
+
+즉 키워드가 없으면 CLIP 점수가 높아도 안 잡히고(순수 의미검색은 아님), CLIP은 키워드로 걸러진 후보의 순위를 다듬는 역할이다.
 
 ### 유사 이미지
 
 대상 이미지의 CLIP 임베딩과 전체 이미지 임베딩의 코사인 유사도(L2 정규화 벡터의 내적)를 계산해 자기 자신을 뺀 상위 K개를 반환한다.
+
+### 캐릭터 학습 (프로토타입)
+
+WD14가 못 잡는 캐릭터를 사용자 라벨로 학습한다. 신경망 재훈련이 아니라 **nearest-centroid** 방식:
+
+- 인덱싱 때 각 이미지에 **CCIP 임베딩**(캐릭터 동일성용 768d, L2 정규화)을 저장한다.
+- 캐릭터 이름을 라벨하면(`wd_chars_ko` 편집) 그 이름의 **centroid**(그 이름으로 라벨된 이미지 임베딩들의 평균 벡터)를 온라인 평균 `(기존×count + 새 벡터)/(count+1)`으로 갱신한다. `char_prototypes` 테이블에 name·centroid·count로 저장.
+- 다른 이미지에서 후보를 물으면(`GET /api/image/{id}/suggest_chars`) 그 이미지의 CCIP 임베딩과 모든 centroid의 코사인 유사도를 구해 임계값(기본 0.70) 이상을 추천한다.
+
+무거운 특징 추출은 고정된 CCIP 모델이 하고 학습은 캐릭터별 평균점만 갱신하므로, 라벨 한 장으로도 동작하고 즉시 반영된다. `character_aliases.json`(romaji→한국어 사전)과는 별개다 — 사전은 이름 표기를 바꾸는 치환일 뿐 학습이 아니다.
 
 ### 태그 이동 (atomic)
 
@@ -237,8 +259,9 @@ flowchart TD
 | VLM (로컬) | Qwen2.5-VL-7B-Instruct | 한국어 태깅. 멀티모달. 4bit 양자화 옵션 |
 | VLM (API) | OpenAI / Anthropic / Gemini | GPU 없이 동작. SDK는 lazy import |
 | 양자화 | bitsandbytes nf4 + double quant | 16GB → 약 5.5GB VRAM (Windows + Python 3.13에서 autoawq 대신 채택) |
-| 임베딩 | CLIP ViT-B/32 (open_clip, laion2b) | 512d, 빠름 |
+| 임베딩 | CLIP ViT-B/32 (open_clip, laion2b) | 512d, 텍스트 검색 순위·유사 이미지 |
 | 캐릭터 인식 | WD14 EVA02-Large (ONNX) | CPU 추론, 애니/만화 캐릭터 다수 학습 |
+| 캐릭터 학습 | CCIP (deepghs/ccip_onnx, ONNX) | 768d 동일성 임베딩. 사용자 라벨 centroid로 few-shot 인식 |
 | DB | SQLite (WAL) | 단일 파일, 동시 read/write, 외부 의존 없음 |
 | 웹 서버 | FastAPI + Uvicorn | async, Pydantic 검증 |
 | 프론트엔드 | Vanilla HTML/CSS/JS | 빌드 단계 없음, 한 파일 |
@@ -393,6 +416,7 @@ WD14는 캐릭터를 **Danbooru 표준 태그(romaji)**로 인식한다 — 예:
 | POST | `/api/index` | `{path, reindex, with_ai}` 폴더 인덱싱 시작 (백그라운드) |
 | POST | `/api/backfill_wd14` | WD14 누락분만 채움 |
 | POST | `/api/backfill_vlm` | AI 한국어 태그/설명 누락분 채움 |
+| POST | `/api/backfill_ccip` | CCIP 캐릭터 임베딩 누락분 채움 (기존 사진 학습 준비) |
 | POST | `/api/relocalize` | character_aliases 갱신 후 한국어 매핑 재적용 (재분석 안 함) |
 | POST | `/api/dedupe_tags` | 모든 이미지의 중복 태그 정리 |
 | GET | `/api/index/status` | 진행률 + 현재 상태 폴링 |
@@ -425,6 +449,7 @@ WD14는 캐릭터를 **Danbooru 표준 태그(romaji)**로 인식한다 — 예:
 | POST | `/api/image/{id}/tags` | `{tags: list[str]}` user_tags 전체 갱신 |
 | POST | `/api/image/{id}/field_tags` | `{field, tags}` 임의 필드 갱신 (dedupe) |
 | POST | `/api/image/{id}/move_tag` | `{tag, source, target}` user/char/ai 6방향 atomic 이동 |
+| GET | `/api/image/{id}/suggest_chars?min_score=&limit=` | CCIP centroid 코사인으로 캐릭터 후보 추천 |
 | POST | `/api/image/{id}/copy` | (로컬 only) OS 클립보드에 이미지 복사 |
 
 ### 설정
